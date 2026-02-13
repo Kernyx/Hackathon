@@ -1,0 +1,18 @@
+# Секреты и данные
+.env
+.env.*
+secrets/
+
+# Данные БД и логи
+data/
+logs/
+backups/
+
+# Docker volumes
+caddy-data/
+caddy-config/
+
+# Временные файлы
+*.log
+*.tmp
+.DS_Store
