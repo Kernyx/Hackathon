@@ -1,0 +1,80 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: hackathon-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+      - ./logs/caddy:/var/log/caddy
+    networks:
+      - hackathon-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hackathon-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+      - ./logs/postgres:/var/log/postgresql
+    ports:
+      - "10.66.66.1:5432:5432"
+    networks:
+      - hackathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: hackathon-queue
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    volumes:
+      - ./data/rabbitmq:/var/lib/rabbitmq
+      - ./logs/rabbitmq:/var/log/rabbitmq
+    ports:
+      - "10.66.66.1:5672:5672"
+      - "10.66.66.1:15672:15672"
+    networks:
+      - hackathon-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: hackathon-pgadmin
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - ./data/pgadmin:/var/lib/pgadmin
+      - ./logs/pgadmin:/var/log/pgadmin
+    ports:
+      - "10.66.66.1:5050:80"
+    networks:
+      - hackathon-net
+    depends_on:
+      - postgres
+
+networks:
+  hackathon-net:
+    driver: bridge
