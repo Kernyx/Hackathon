@@ -18,7 +18,7 @@ public class App {
     }
     
     @GetMapping("/")
-    public String hello() {
-        return "Java Backend - Ready!";
+    public String index() {
+        return "<!DOCTYPE html><html><head><title>Java Backend</title><style>body{font-family:Arial;text-align:center;padding:50px;}h1{color:#e74c3c;}</style></head><body><h1>✅ Java Backend работает!</h1><p>Порт: 8080</p></body></html>";
     }
 }

@@ -1,89 +1,23 @@
-{
-    # Глобальные настройки
-    # Отключаем админку Caddy (безопасность)
-    admin off
-    
-    # Настройки сервера
-    servers {
-        protocol {
-            # Включаем HTTP/3 (QUIC) для скорости
-            experimental_http3
-        }
-    }
-}
-
-# === FRONTEND (основной сайт) ===
+# === FRONTEND ===
 besthackaton.duckdns.org {
-    # Логирование
     log {
-        output file /var/log/caddy/frontend.log {
-            roll_size 100MB
-            roll_keep 5
-            roll_keep_for 720h
-        }
-        format json
+        output file /var/log/caddy/frontend.log
     }
     
-    # Сжатие
-    encode gzip zstd
+    encode gzip
     
-    # Заголовки безопасности
-    header {
-        # Защита от кликджекинга
-        X-Frame-Options "DENY"
-        # Защита от сниффинга
-        X-Content-Type-Options "nosniff"
-        # Защита от XSS
-        X-XSS-Protection "1; mode=block"
-        # Политика реферера
-        Referrer-Policy "strict-origin-when-cross-origin"
-        # Permissions Policy
-        Permissions-Policy "geolocation=(), camera=(), microphone=()"
-    }
-    
-    # Обратный прокси к фронтенду
     reverse_proxy localhost:8082
-    
-    # Health check
-    @health {
-        path /health
-    }
-    respond @health "OK" 200
 }
 
-# === JAVA BACKEND (API) ===
+# === JAVA BACKEND ===
 api.besthackaton.duckdns.org {
     log {
-        output file /var/log/caddy/java-api.log {
-            roll_size 100MB
-            roll_keep 5
-        }
-        format json
+        output file /var/log/caddy/java-api.log
     }
     
-    encode gzip zstd
-    
-    # Rate limiting (защита от спама)
-    @rate_limit {
-        not path /health
-    }
-    rate_limit @rate_limit {
-        zone api 100 1m
-    }
-    
-    # Ограничение размера тела запроса
-    request_body {
-        max_size 10MB
-    }
+    encode gzip
     
     reverse_proxy localhost:8080
-    
-    # CORS для фронтенда
-    header {
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "*"
-    }
 }
 
 # === GO BACKEND ===
@@ -106,21 +40,4 @@ ml.besthackaton.duckdns.org {
     encode gzip
     
     reverse_proxy localhost:8083
-}
-
-# === ОБЩИЕ ПРАВИЛА ===
-# Обработка ошибок 404
-@not_found {
-    expression {http.error.status_code} == 404
-}
-handle_errors @not_found {
-    respond "Not Found" 404
-}
-
-# Обработка ошибок 500
-@server_error {
-    expression {http.error.status_code} >= 500
-}
-handle_errors @server_error {
-    respond "Internal Server Error" 500
 }

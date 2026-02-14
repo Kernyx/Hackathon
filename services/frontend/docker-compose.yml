@@ -8,11 +8,6 @@ services:
     networks:
       - default
       - infra-net
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
 networks:
   infra-net:
