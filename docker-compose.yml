@@ -1,21 +1,9 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: hackathon-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./data/caddy:/data
-      - ./logs/caddy:/var/log/caddy
-    networks:
-      - hackathon-net
-
+  # === ИНФРАСТРУКТУРА ===
   postgres:
     image: postgres:16-alpine
     container_name: hackathon-db
+    profiles: ["infra", "all"]
     restart: unless-stopped
     env_file: .env
     environment:
@@ -39,6 +27,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: hackathon-queue
+    profiles: ["infra", "all"]
     restart: unless-stopped
     env_file: .env
     environment:
@@ -59,12 +48,12 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: hackathon-pgadmin
+    profiles: ["infra", "all"]
     restart: unless-stopped
     env_file: .env
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
       - ./data/pgadmin:/var/lib/pgadmin
       - ./logs/pgadmin:/var/log/pgadmin
@@ -74,6 +63,91 @@ services:
       - hackathon-net
     depends_on:
       - postgres
+
+  # === CADDY (профиль proxy) ===
+  caddy:
+    image: caddy:2-alpine
+    container_name: hackathon-caddy
+    profiles: ["proxy", "all"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+      - ./logs/caddy:/var/log/caddy
+    networks:
+      - hackathon-net
+    # ❌ НЕТ depends_on на apps! Caddy сам разберётся
+
+  # === МИКРОСЕРВИСЫ (профиль apps) ===
+  frontend:
+    build: ./services/frontend
+    container_name: hackathon-frontend
+    profiles: ["apps", "all"]
+    expose:
+      - "8082"
+    networks:
+      - hackathon-net
+
+  java-backend:
+    build: ./services/java-backend
+    container_name: hackathon-java
+    profiles: ["apps", "all"]
+    expose:
+      - "8080"
+    env_file: .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - RABBIT_HOST=rabbitmq
+    networks:
+      - hackathon-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  go-backend:
+    build: ./services/go-backend
+    container_name: hackathon-go
+    profiles: ["apps", "all"]
+    expose:
+      - "8081"
+    env_file: .env
+    environment:
+      - DB_HOST=postgres
+      - RABBIT_HOST=rabbitmq
+    networks:
+      - hackathon-net
+
+  ml-service:
+    build: ./services/ml-service
+    container_name: hackathon-ml
+    profiles: ["apps", "all"]
+    expose:
+      - "8083"
+    env_file: .env
+    networks:
+      - hackathon-net
+
+  ml-service:
+    build: ./services/ml-service
+    container_name: hackathon-ml
+    profiles: ["apps", "all"]
+    expose:
+      - "8083"
+    env_file: .env
+    environment:
+      - DB_HOST=postgres
+      - RABBIT_HOST=rabbitmq
+    networks:
+      - hackathon-net
+    depends_on:
+      - rabbitmq
 
 networks:
   hackathon-net:

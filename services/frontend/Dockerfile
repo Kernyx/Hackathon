@@ -1,7 +1,5 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
+COPY server.js .
 EXPOSE 8082
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
