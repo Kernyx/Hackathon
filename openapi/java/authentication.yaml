@@ -1,0 +1,144 @@
+openapi: 3.1.0
+
+info:
+  title: Authentication Contract
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/auth
+
+paths:
+  /signup:
+    post:
+      summary: Sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpDto'
+      responses:
+        "201":
+          description: User successfully registered
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /signin:
+    post:
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInDto'
+      responses:
+        "200":
+          description: User authenticated
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /refresh-token:
+    get:
+      summary: Refresh access token
+      parameters:
+        - name: refreshToken
+          in: cookie
+          required: true
+          description: Refresh token required to update access token
+          schema:
+            type: string
+            format: jwt
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        "200":
+          description: Access token updated
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    SignUpDto:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          examples:
+            - "winner1337"
+        email:
+          type: string
+          examples:
+            - "admin@admin.com"
+        password:
+          type: string
+          examples:
+            - "admin"
+
+    SignInDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          examples:
+            - "admin@admin.com"
+        password:
+          type: string
+          examples:
+            - "admin"
+
+  responses:
+    BadRequest:
+      description: Incorrect credentials
+      content:
+        application/json:
+          schema:
+            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: User already registered
+      content:
+        application/json:
+          schema:
+            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Access token can't be updated. Sign-in required
+      content:
+        application/json:
+          schema:
+            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
