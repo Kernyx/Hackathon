@@ -113,32 +113,32 @@ components:
       content:
         application/json:
           schema:
-            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+            $ref: './errors.yaml#/components/schemas/ErrorResponse'
 
     Conflict:
       description: User already registered
       content:
         application/json:
           schema:
-            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+            $ref: './errors.yaml#/components/schemas/ErrorResponse'
 
     TooManyRequests:
       description: Too many requests
       content:
         application/json:
           schema:
-            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+            $ref: './errors.yaml#/components/schemas/ErrorResponse'
 
     Unauthorized:
       description: Access token can't be updated. Sign-in required
       content:
         application/json:
           schema:
-            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+            $ref: './errors.yaml#/components/schemas/ErrorResponse'
 
     InternalError:
       description: Internal server error
       content:
         application/json:
           schema:
-            $ref: './common/errors.yaml#/components/schemas/ErrorResponse'
+            $ref: './errors.yaml#/components/schemas/ErrorResponse'
