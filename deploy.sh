@@ -27,6 +27,21 @@ fi
 
 log "📝 Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
 
+# === СЛУЧАЙ 1: Изменения в инфраструктуре (.env или docker-compose.yml) ===
+if echo "$CHANGED" | grep -qE "^(docker-compose\.yml|\.env)$"; then
+    log "⚠️ Изменена инфраструктура — требуется полный перезапуск!"
+    log "🛑 Останавливаем все сервисы..."
+    docker compose --profile all down 2>&1 | tee -a "$LOG_FILE"
+    
+    log "🔄 Запускаем с новой конфигурацией..."
+    docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
+    
+    log "✅ Полный перезапуск завершён"
+    docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
+    echo "----------------------------------------" >> "$LOG_FILE"
+    exit 0
+fi
+
 # === СЛУЧАЙ 2: Caddyfile → reload Caddy ===
 if echo "$CHANGED" | grep -q "^Caddyfile$"; then
     log "🔄 Перезагрузка Caddy..."
@@ -36,7 +51,9 @@ if echo "$CHANGED" | grep -q "^Caddyfile$"; then
     fi
 fi
 
-# === СЛУЧАЙ 3: Микросервисы → пересборка по отдельности ===
+# === СЛУЧАЙ 3: Микросервисы → пересборка всего стека ===
+REBUILD_NEEDED=false
+
 SERVICES_MAP=(
     "services/frontend:frontend"
     "services/java-backend:java"
@@ -47,12 +64,18 @@ SERVICES_MAP=(
 for mapping in "${SERVICES_MAP[@]}"; do
     dir="${mapping%%:*}"
     profile="${mapping##*:}"
-    
+
     if echo "$CHANGED" | grep -q "^${dir}/"; then
-        log "🔄 Пересборка ${profile}..."
-        docker compose --profile "$profile" up -d --build 2>&1 | tee -a "$LOG_FILE"
+        log "📝 Изменения обнаружены в ${profile}"
+        REBUILD_NEEDED=true
     fi
 done
+
+# Если были изменения в микросервисах - пересобираем весь стек
+if [ "$REBUILD_NEEDED" = true ]; then
+    log "🔄 Пересборка всех сервисов..."
+    docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
+fi
 
 log "✅ Деплой завершён"
 docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
