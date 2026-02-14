@@ -79,7 +79,6 @@ services:
       - ./logs/caddy:/var/log/caddy
     networks:
       - hackathon-net
-    # ❌ НЕТ depends_on на apps! Caddy сам разберётся
 
   # === МИКРОСЕРВИСЫ (профиль apps) ===
   frontend:
@@ -121,16 +120,6 @@ services:
     environment:
       - DB_HOST=postgres
       - RABBIT_HOST=rabbitmq
-    networks:
-      - hackathon-net
-
-  ml-service:
-    build: ./services/ml-service
-    container_name: hackathon-ml
-    profiles: ["apps", "all"]
-    expose:
-      - "8083"
-    env_file: .env
     networks:
       - hackathon-net
 
