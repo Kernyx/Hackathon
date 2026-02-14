@@ -2,12 +2,18 @@ version: '3.8'
 services:
   ml-service:
     build: .
-    container_name: hackathon-ml-service
+    container_name: hackathon-ml
     expose:
-      - "8080"
+      - "8083"
+    env_file: ../../.env
     networks:
       - default
       - infra-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   infra-net:
