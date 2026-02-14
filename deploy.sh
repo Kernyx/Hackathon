@@ -8,81 +8,74 @@ log() { echo "[$TIMESTAMP] $1" | tee -a "$LOG_FILE"; }
 cd /opt/hackathon
 log "🚀 Деплой запущен"
 
-# Проверяем, нет ли незакоммиченных изменений
+# Проверка незакоммиченных изменений
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-    log "⚠️  Найдены незакоммиченные изменения в рабочей директории"
-    log "💡 Закоммитьте изменения или используйте 'git stash' перед деплоем"
+    log "⚠️  НЕЗАКОММИЧЕННЫЕ ИЗМЕНЕНИЯ! Деплой отменён."
+    log "💡 Закоммитьте изменения или используйте 'git stash'"
     exit 1
 fi
 
-# Безопасное обновление кода
-log "🔄 Обновление кода из GitHub..."
+# Обновление кода
+log "🔄 Обновление кода..."
 git pull --ff-only origin main 2>&1 | tee -a "$LOG_FILE"
 
 # Анализ изменений (последний коммит)
 CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
 log "📝 Изменено: ${CHANGED:-<ничего>}"
 
-# Если изменений нет — выходим
 if [[ -z "$CHANGED" ]]; then
-    log "ℹ️  Нет изменений, требующих перезапуска"
+    log "ℹ️  Нет изменений для перезапуска"
     exit 0
 fi
 
-# Флаги для перезапуска
+# Флаги
 RESTART_INFRA=false
 RESTART_CADDY=false
 RESTART_SERVICES=()
 
-# Анализируем изменения
 while IFS= read -r file; do
     [[ -z "$file" ]] && continue
-    
     case "$file" in
-        docker-compose.yml)
-            RESTART_INFRA=true
-            ;;
-        Caddyfile)
-            RESTART_CADDY=true
-            ;;
+        docker-compose.yml) RESTART_INFRA=true ;;
+        Caddyfile) RESTART_CADDY=true ;;
         services/*)
-            # Извлекаем имя сервиса
-            SERVICE_NAME=$(echo "$file" | cut -d'/' -f2)
-            if [[ ! " ${RESTART_SERVICES[@]} " =~ " ${SERVICE_NAME} " ]]; then
-                RESTART_SERVICES+=("$SERVICE_NAME")
-            fi
+            svc=$(echo "$file" | cut -d'/' -f2)
+            [[ ! " ${RESTART_SERVICES[*]} " =~ " ${svc} " ]] && RESTART_SERVICES+=("$svc")
             ;;
     esac
 done < <(echo "$CHANGED")
 
-# Перезапуск инфраструктуры
+# Инфраструктура
 if [[ "$RESTART_INFRA" == true ]]; then
     log "🔄 Перезапуск инфраструктуры..."
-    docker compose down 2>&1 | tee -a "$LOG_FILE"
+    docker compose down 2>&1 | tee -a "$LOG_FILE" || true
     docker compose up -d --build 2>&1 | tee -a "$LOG_FILE"
     log "✅ Инфраструктура перезапущена"
-    exit 0  # Если перезапустили инфраструктуру — всё перезапустилось
+    exit 0
 fi
 
-# Перезапуск Caddy
+# Caddy
 if [[ "$RESTART_CADDY" == true ]]; then
-    log "🔄 Обновление конфига Caddy (zero-downtime)..."
+    log "🔄 Перезагрузка Caddy..."
     if ! docker exec hackathon-caddy caddy reload --config /etc/caddy/Caddyfile 2>&1 | tee -a "$LOG_FILE"; then
-        log "⚠️  Reload не удался — пересоздаём контейнер..."
+        log "⚠️  Reload не удался — пересоздаём контейнер"
         docker compose up -d --force-recreate --no-deps caddy 2>&1 | tee -a "$LOG_FILE"
     fi
 fi
 
-# Перезапуск микросервисов
+# Микросервисы
 for svc in "${RESTART_SERVICES[@]}"; do
-    SVC_DIR="services/$svc"
-    if [[ -f "$SVC_DIR/docker-compose.yml" ]]; then
-        log "🔄 Перезапуск сервиса: $svc..."
-        if (cd "$SVC_DIR" && docker compose down && docker compose up -d --build 2>&1) | tee -a "$LOG_FILE"; then
+    dir="services/$svc"
+    if [[ -f "$dir/docker-compose.yml" ]]; then
+        log "🔄 Перезапуск $svc..."
+        if cd "$dir" && docker compose down 2>&1 | tee -a "$LOG_FILE" && \
+           docker compose up -d --build 2>&1 | tee -a "$LOG_FILE"; then
             log "✅ $svc успешно перезапущен"
         else
-            log "❌ Ошибка при перезапуске $svc (продолжаем деплой других сервисов)"
+            log "❌ ОШИБКА при перезапуске $svc"
+            exit 1
         fi
+        cd /opt/hackathon
     fi
 done
 
