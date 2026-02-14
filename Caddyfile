@@ -1,30 +1,19 @@
-# === FRONTEND (единственное публичное) ===
 besthackaton.duckdns.org {
-    respond "Hackathon Frontend — в разработке"
-    # Потом: reverse_proxy frontend:8080
-    
-    log {
-        output file /var/log/caddy/frontend.log
-    }
-    
+    reverse_proxy frontend:8082
     encode gzip
-    
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        X-XSS-Protection "1; mode=block"
-    }
 }
 
-# === API endpoints (публичные, если нужны) ===
 api.besthackaton.duckdns.org {
-    respond "Java API — в разработке"
-    # Потом: reverse_proxy java-backend:8080
-    
-    log {
-        output file /var/log/caddy/api.log
-    }
-    
+    reverse_proxy java-backend:8080
     encode gzip
 }
 
+go.besthackaton.duckdns.org {
+    reverse_proxy go-backend:8081
+    encode gzip
+}
+
+ml.besthackaton.duckdns.org {
+    reverse_proxy ml-service:8083
+    encode gzip
+}
