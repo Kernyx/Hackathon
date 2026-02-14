@@ -1,19 +1,134 @@
+# ============================================
+# ГЛОБАЛЬНЫЕ НАСТРОЙКИ
+# ============================================
+{
+    email admin@besthackaton.duckdns.org
+    
+    log {
+        output file /var/log/caddy/access.log
+        format json
+        level INFO
+    }
+}
+
+# ============================================
+# FRONTEND
+# ============================================
 besthackaton.duckdns.org {
-    reverse_proxy frontend:8082
-    encode gzip
+    log {
+        output file /var/log/caddy/frontend.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+    }
+
+    reverse_proxy frontend:8082 {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 30s
+        }
+    }
+
+    encode gzip zstd
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Access-Control-Allow-Origin "*"
+    }
 }
 
+# ============================================
+# JAVA BACKEND API
+# ============================================
 api.besthackaton.duckdns.org {
-    reverse_proxy java-backend:8080
-    encode gzip
+    log {
+        output file /var/log/caddy/java-api.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+    }
+
+    reverse_proxy java-backend:8080 {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 60s
+        }
+    }
+
+    encode gzip zstd
+
+    header {
+        -Server
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+    }
+
+    @options method OPTIONS
+    respond @options 204
 }
 
+# ============================================
+# GO BACKEND API
+# ============================================
 go.besthackaton.duckdns.org {
-    reverse_proxy go-backend:8081
-    encode gzip
+    log {
+        output file /var/log/caddy/go-api.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+    }
+
+    reverse_proxy go-backend:8081 {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 60s
+        }
+    }
+
+    encode gzip zstd
+
+    header {
+        -Server
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+    }
+
+    @options method OPTIONS
+    respond @options 204
 }
 
+# ============================================
+# ML SERVICE API
+# ============================================
 ml.besthackaton.duckdns.org {
-    reverse_proxy ml-service:8083
-    encode gzip
+    log {
+        output file /var/log/caddy/ml-api.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+    }
+
+    reverse_proxy ml-service:8083 {
+        transport http {
+            dial_timeout 10s
+            response_header_timeout 120s
+        }
+    }
+
+    encode gzip zstd
+
+    header {
+        -Server
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+    }
+
+    @options method OPTIONS
+    respond @options 204
 }
