@@ -68,7 +68,7 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: hackathon-caddy
-    profiles: ["proxy", "all"]
+    profiles: ["caddy", "all"]
     restart: unless-stopped
     ports:
       - "80:80"
@@ -84,7 +84,7 @@ services:
   frontend:
     build: ./services/frontend
     container_name: hackathon-frontend
-    profiles: ["apps", "all"]
+    profiles: ["frontend", "all"]
     expose:
       - "8082"
     networks:
@@ -93,7 +93,7 @@ services:
   java-backend:
     build: ./services/java-backend
     container_name: hackathon-java
-    profiles: ["apps", "all"]
+    profiles: ["java", "all"]
     expose:
       - "8080"
     env_file: .env
@@ -113,7 +113,7 @@ services:
   go-backend:
     build: ./services/go-backend
     container_name: hackathon-go
-    profiles: ["apps", "all"]
+    profiles: ["go", "all"]
     expose:
       - "8081"
     env_file: .env
@@ -126,7 +126,7 @@ services:
   ml-service:
     build: ./services/ml-service
     container_name: hackathon-ml
-    profiles: ["apps", "all"]
+    profiles: ["ml", "all"]
     expose:
       - "8083"
     env_file: .env
