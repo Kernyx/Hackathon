@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  go-backend:
+    build: .
+    container_name: hackathon-go-backend
+    expose:
+      - "8080"
+    networks:
+      - default
+      - infra-net
+
+networks:
+  infra-net:
+    external: true
+    name: hackathon_hackathon-net
