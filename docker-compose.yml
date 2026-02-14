@@ -44,6 +44,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -109,6 +114,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   go-backend:
     build: ./services/go-backend
@@ -122,6 +129,11 @@ services:
       - RABBIT_HOST=rabbitmq
     networks:
       - hackathon-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   ml-service:
     build: ./services/ml-service
@@ -136,7 +148,10 @@ services:
     networks:
       - hackathon-net
     depends_on:
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 networks:
   hackathon-net:
