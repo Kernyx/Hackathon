@@ -2,21 +2,27 @@
 set -e
 
 # Настройки
-BACKUP_DIR="/opt/hackathon/backups/postgres"
-LOG_FILE="/opt/hackathon/logs/backup.log"
+PROJECT_ROOT="${BACKUP_PROJECT_ROOT:-/opt/hackathon}"
+BACKUP_DIR="$PROJECT_ROOT/backups/postgres"
+LOG_FILE="$PROJECT_ROOT/logs/backup.log"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DATE=$(date +%Y-%m-%d)
 MAX_BACKUPS=7  # Храним последние 7 дней
 
 # Загружаем переменные окружения
-source /opt/hackathon/.env
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Ошибка: $PROJECT_ROOT/.env не найден"
+    exit 1
+fi
+source "$PROJECT_ROOT/.env"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Создаём директорию если не существует
+# Создаём директории если не существуют
 mkdir -p "$BACKUP_DIR"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # === БЭКАП БАЗЫ ДАННЫХ ===
 log "🗄️ Начинаем бэкап базы данных..."
@@ -35,7 +41,7 @@ fi
 # === БЭКАП КОНФИГОВ ===
 CONFIG_BACKUP="$BACKUP_DIR/configs_${DATE}_${TIMESTAMP}.tar.gz"
 tar -czf "$CONFIG_BACKUP" \
-    -C /opt/hackathon \
+    -C "$PROJECT_ROOT" \
     .env docker-compose.yml Caddyfile \
     2>/dev/null || true
 
