@@ -49,7 +49,7 @@ CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
 if [[ -z "$CHANGED" ]]; then
     log "ℹ️ Нет изменений в коммите — проверка здоровья и выход"
     docker compose ps --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | tee -a "$LOG_FILE" || true
-    [ -x "$PROJECT_ROOT/check-health.sh" ] && "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
+    [ -f "$PROJECT_ROOT/check-health.sh" ] && bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
     echo "----------------------------------------" >> "$LOG_FILE"
     exit 0
 fi
@@ -67,7 +67,7 @@ if echo "$CHANGED" | grep -qE "^(docker-compose\.yml|\.env)$"; then
     
     log "✅ Полный перезапуск завершён"
     docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
-    [ -x "$PROJECT_ROOT/check-health.sh" ] && "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
+    [ -f "$PROJECT_ROOT/check-health.sh" ] && bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
     echo "----------------------------------------" >> "$LOG_FILE"
     exit 0
 fi
@@ -109,9 +109,9 @@ fi
 
 log "✅ Деплой завершён"
 docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
-if [ -x "$PROJECT_ROOT/check-health.sh" ]; then
-    "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
+if [ -f "$PROJECT_ROOT/check-health.sh" ]; then
+    bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
 else
-    log "⚠️ check-health.sh не найден или не исполняемый — пропуск проверки здоровья"
+    log "⚠️ check-health.sh не найден — пропуск проверки здоровья"
 fi
 echo "----------------------------------------" >> "$LOG_FILE"
