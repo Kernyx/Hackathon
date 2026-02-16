@@ -26,7 +26,7 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
   const [selectedAgent, setSelectedAgent] = useState<any>(null)
   
   // -- STATE ДЛЯ WEBSOCKET --
-  const [isConnected, setIsConnected] = useState(true)
+  const [isConnected, setIsConnected] = useState(false)
   const [events, setEvents] = useState<LogEvent[]>([])
   const [inputValue, setInputValue] = useState("")
   const wsRef = useRef<WebSocket | null>(null)
