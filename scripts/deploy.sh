@@ -21,8 +21,9 @@ add_service() {
 # Переход в корень проекта
 cd "$PROJECT_ROOT" || { echo "Ошибка: директория $PROJECT_ROOT не найдена"; exit 1; }
 
-# Создание директорий для логов и бэкапов (первый запуск)
+# Создание директорий для логов, данных и бэкапов (первый запуск)
 mkdir -p "$PROJECT_ROOT/logs/caddy" \
+         "$PROJECT_ROOT/data/postgres" \
          "$PROJECT_ROOT/backups/postgres"
 
 # Проверка наличия .env
