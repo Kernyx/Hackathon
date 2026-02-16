@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -15,16 +16,45 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// AIAgent defines model for AIAgent.
-type AIAgent struct {
+// AiAgent defines model for AiAgent.
+type AiAgent struct {
 	// Id Уникальный идентификатор агента
 	Id openapi_types.UUID `json:"id"`
 
 	// Username Имя агента
 	Username string `json:"username"`
+}
+
+// Event Событие из ленты
+type Event struct {
+	// Data Данные события
+	Data *struct {
+		// Message Текст сообщения
+		Message *string `json:"message,omitempty"`
+
+		// Mood Настроение агента
+		Mood *string `json:"mood,omitempty"`
+	} `json:"data,omitempty"`
+
+	// EventType Тип события
+	EventType *string `json:"event_type,omitempty"`
+
+	// ProcessedAt Время обработки события
+	ProcessedAt *time.Time `json:"processed_at,omitempty"`
+
+	// ProcessedTs Unix timestamp обработки
+	ProcessedTs *int64   `json:"processed_ts,omitempty"`
+	SourceAgent *AiAgent `json:"source_agent,omitempty"`
+
+	// TargetAgents ИИ агенты - получатели
+	TargetAgents *[]AiAgent `json:"target_agents,omitempty"`
+
+	// Timestamp Время события
+	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
 // PostEventsJSONBody defines parameters for PostEvents.
@@ -40,13 +70,19 @@ type PostEventsJSONBody struct {
 
 	// EventType Тип события для ML обработки
 	EventType   *string  `json:"event_type,omitempty"`
-	SourceAgent *AIAgent `json:"source_agent,omitempty"`
+	SourceAgent *AiAgent `json:"source_agent,omitempty"`
 
 	// TargetAgents ИИ агент(ы) - получатели сообщения
-	TargetAgents *[]AIAgent `json:"target_agents,omitempty"`
+	TargetAgents *[]AiAgent `json:"target_agents,omitempty"`
 
 	// Timestamp Время события
 	Timestamp *time.Time `json:"timestamp,omitempty"`
+}
+
+// GetFeedParams defines parameters for GetFeed.
+type GetFeedParams struct {
+	// Limit Количество событий (максимум 100)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // PostEventsJSONRequestBody defines body for PostEvents for application/json ContentType.
@@ -57,6 +93,9 @@ type ServerInterface interface {
 	// Publish AI log
 	// (POST /events)
 	PostEvents(ctx echo.Context) error
+	// Get recent events feed
+	// (GET /feed)
+	GetFeed(ctx echo.Context, params GetFeedParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -70,6 +109,24 @@ func (w *ServerInterfaceWrapper) PostEvents(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.PostEvents(ctx)
+	return err
+}
+
+// GetFeed converts echo context to params.
+func (w *ServerInterfaceWrapper) GetFeed(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetFeedParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetFeed(ctx, params)
 	return err
 }
 
@@ -102,24 +159,32 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/events", wrapper.PostEvents)
+	router.GET(baseURL+"/feed", wrapper.GetFeed)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5RUzWrbShR+FXHuXdwLipVwd9r5QheGFApdhhAm0ok9QdJMZ0amJhgct1BKCoG2i2y6",
-	"aR+gShuDGsfOK5x5ozKjOH8WhG6EpPP3zfm+b44gEbkUBRZGQ3wEOhlgzvxrt9ftY2Hcq1RCojIcfYCn",
-	"7pmiThSXhosCYqBvtKCaLqmiuf1AC3tCvwKq6YJmtLBTqu3bJmyntLSTgCr6eROqIIQDoXJmIIay5CmE",
-	"YEYSIQZtFC/6MA6h1KgKlmPL5DO6sqePG+JrlsvM4d1xGWf34gF9oorO3QdVsLs2bByCwlclV5i6ao/n",
-	"dvxdutg/xMTA2OXz4kA4ZIabzMW6ZcpN8BLVkCcIIQxR6QbtVmezs+kOJCQWTHKI4b/OVmcTQpDMDPx+",
-	"Ixyu6JBCewLc+pk7cC+FGF4IbZ41OQ1W1OZ/kY5cZiIKc8MakzLjiS+LDrUbv+J3ndOUGday289U0cKz",
-	"OQvsMS3p3J54Nk8d4AcdctSa9dsI+kozurTHdtq0cE3e++03bR5Q9d3l/KDKTqimeUDXNPOCumoKWugK",
-	"IReiTZFfqHJD7YSWTTHNHqgkoAua29Pg+XbgMU28KpZ2SpdUP8I1YFKOntbKagfrKgnBk7rX/G5ZUU3X",
-	"jzb8FL61PWhRqgT32Mq1fys8gBj+iu4sHt34O1qZexyCYaqPpinTrf66755/7Mm/wYYjZklz+8a+85ae",
-	"0Zzqdnq5wVz/CZzmWEwpNvLfPEdtWC5boH20E5p5+6+J8/ZGSZnBDdcE2thrMfMdoUaV6H9oKQrtlFCU",
-	"WRaCLvOcqZFzYrmfcT0Iur0gE303gfW9YLq9wJ8o2BZ9Dbu+sUblLgKId46gVBnEEDHJo+FWxNx9AePd",
-	"8e8AAAD//4kEC2mPBQAA",
+	"H4sIAAAAAAAC/9RXbWsbRxD+K8u2HxJQrJObFqpvLqQhkEKh7acizOZuJG/Q3V5294RFENhOS1oUMLSF",
+	"hkIpbX9AFdciimXJf2H2H5XZkyyd7pK4SWnpF3Evu/PMPDPPc6uHPFRxqhJIrOHNh9yEexALf7kjdzqQ",
+	"WLpMtUpBWwn+hYzoNwITaplaqRLe5Pg7znCCZzjCqXuCMzfEFwwneIpjnLkjnLiv8tfuCOfugOEI/1y8",
+	"GvEabysdC8ubPMtkxGvc9lPgTW6slkmHD2o8M6ATEUMF8lM8d8ebAWFfxGmX8v2SVjxde8/wexzhM7rB",
+	"EW+VwAY1ruFBJjVEtNvncwm/Wq7u3YfQUm63eguaNhL7Fef4zA2pehwTGc8ZTvMc3JDXNliNhBUVQX7A",
+	"Ec48n2PmDlcR3XEpQgzGiE4VRb/hGM/coTvKQ1CQb339eZgS27FSVT3+GUcUxB3gPN9NZRV5L3NZoguI",
+	"rt38cUWmE7woF1rKMNUqBGMg2hVV1H/nDnCczwUFOvANn7sjPMNJOfrl9EXCwg0rY3g1ZC6VIuQXidxn",
+	"tNVYEacVsOs4MrEf3FxhyMRCBzSBGJXpEHbFUnnvamjzJn+nvpJpfaHR+lKgRLLQHbD5NlOpkXUFuCG7",
+	"wfAC5zh1j9xjL8oxTn2O0kJs/g5yXoLQWvT9/ZKCV3bljVpQHiZ6JJO2IiwrbZfe7WSRtOwz0D0ZUpAe",
+	"aJPjN7aCrYByVCkkIpW8yd/bamwFJCRh93zVdT+d/jJVxreAJCaohDsRb/JPlbG38jW5T4CxH6moTytD",
+	"ldhF30SadmXot9XvG4JfemvZT/9D5Rds8g9ac4Ijd4ATnNKAjL2Zn+cbKqzyjZ2C4SlO3TH75G61Utbz",
+	"2hNp2n+9Ty85aP0TlvO6/Eo8/Cu6veaG11+i3Or2/u/EvGqo1Rn4ByZVicnHfDvYfguZGSts5q/Wp0uE",
+	"IaQWosrpLtR/ta/EcsjWMRajuWso69YVqSjS7S2HXSY7qPGbQVDuyp2kJ7oyYgtj8uu2Pyyv+1wpFouk",
+	"zxZ2R4Ami2Oh++Rx2b2uNHts5w7rqg5VKTq+kKK3tmhXvQ3gHaADVR/iXy5HdeKO3BM/u+7QH4NOF76w",
+	"qbzSOalowLfBfkyQZNpaxGBBU24l5J8IGSfuMY7JivAE5wUofMGu4TmOyB5xgufuEZ6zRhBcJ91QhAcZ",
+	"6D6v8fzYybsylpbX1sYrgrbIupY3t4Maj8W+jLOYNxsB3clkcVf+yA9apbEO3mKsQ5VVnj6r6qcffI4n",
+	"5GcLo5i5oft6g5iiATeCVtVJZfWhvJLL5IfkCo/JeS3n/yOO8II+IO6bZaL0l2JKvaJhKia5XZXkVYR1",
+	"VxrLVJtpCElhSz3U+PvV+rL0R6DLDOgeaAZaK72hnttgi9FYO5/Xl6qItvt4+SBnusubvC5SWe816oJW",
+	"80Fr8FcAAAD//+8KcimrDQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
