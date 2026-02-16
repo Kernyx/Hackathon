@@ -17,5 +17,5 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: 22
           script: |
-            cd /opt/hackathon
+            cd /opt/hackathon/scripts/
             ./deploy.sh
