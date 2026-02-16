@@ -1,3 +1,3 @@
-module github.com/hackathon/go-backend
+module audite-service
 
-go 1.21
+go 1.22.2
