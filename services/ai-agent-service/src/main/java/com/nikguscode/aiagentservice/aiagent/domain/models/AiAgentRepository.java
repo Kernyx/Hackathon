@@ -9,6 +9,8 @@ public interface AiAgentRepository {
 
   void delete(UUID aiAgentId);
 
+  void update(AiAgent aiAgent, UUID agentId);
+
   Optional<AiAgent> findById(UUID aiAgentId);
 
   List<AiAgent> findByUserId(UUID userId);

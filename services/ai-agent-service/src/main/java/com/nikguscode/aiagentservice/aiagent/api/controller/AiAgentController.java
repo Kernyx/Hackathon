@@ -1,6 +1,7 @@
 package com.nikguscode.aiagentservice.aiagent.api.controller;
 
 import com.nikguscode.aiagentservice.aiagent.api.dto.AgentCreateDto;
+import com.nikguscode.aiagentservice.aiagent.api.dto.AgentUpdateDto;
 import com.nikguscode.aiagentservice.aiagent.api.mapper.AiAgentWebMapper;
 import com.nikguscode.aiagentservice.aiagent.application.AiAgentCommand;
 import com.nikguscode.aiagentservice.aiagent.application.AiAgentUsecase;
@@ -28,16 +29,17 @@ public class AiAgentController {
 
   @PostMapping("/agents")
   public ResponseEntity<String> createAiAgent(@RequestBody @Validated AgentCreateDto dto) {
-    System.out.println(dto);
-    AiAgentCommand snapshot = mapper.toCommand(dto);
-    System.out.println(snapshot);
-    aiAgentUsecase.registerAgent(snapshot);
+    AiAgentCommand command = mapper.toCommand(dto);
+    aiAgentUsecase.registerAgent(command);
     return ResponseEntity.status(HttpStatus.CREATED).body("ok");
   }
 
   @PutMapping("/agents/{agentId}")
-  public ResponseEntity<String> updateAiAgent(@PathVariable("agentId") UUID agentId) {
-
+  public ResponseEntity<String> updateAiAgent(
+      @PathVariable("agentId") UUID agentId, @RequestBody @Validated AgentUpdateDto dto) {
+    AiAgentCommand command = mapper.toCommand(dto);
+    aiAgentUsecase.updateAgent(command, agentId);
+    return ResponseEntity.ok().body("Updated");
   }
 
   @DeleteMapping("/agents/{agentId}")
