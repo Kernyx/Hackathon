@@ -11,9 +11,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
       - ./backups/postgres:/backups
-      - ./logs/postgres:/var/log/postgresql
     ports:
       - "10.66.66.1:5432:5432"
     networks:
@@ -23,6 +22,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -34,8 +37,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
     volumes:
-      - ./data/rabbitmq:/var/lib/rabbitmq
-      - ./logs/rabbitmq:/var/log/rabbitmq
+      - rabbitmq-data:/var/lib/rabbitmq
     ports:
       - "10.66.66.1:5672:5672"
       - "10.66.66.1:15672:15672"
@@ -49,6 +51,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -59,20 +65,26 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     volumes:
-      - ./data/pgadmin:/var/lib/pgadmin
-      - ./logs/pgadmin:/var/log/pgadmin
+      - pgadmin-data:/var/lib/pgadmin
     ports:
       - "10.66.66.1:5050:80"
     networks:
       - hackathon-net
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # === CADDY ===
   caddy:
-    build: ./caddy-custom
+    build:
+      context: ./services/caddy
+      dockerfile: Dockerfile
     container_name: hackathon-caddy
     profiles: ["caddy", "all"]
     restart: unless-stopped
@@ -80,21 +92,44 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./data/caddy:/data
+      - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
       - ./logs/caddy:/var/log/caddy
     networks:
       - hackathon-net
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
-  # === МИКРОСЕРВИСЫ (профиль apps) ===
+  # === МИКРОСЕРВИСЫ ===
   frontend:
-    build: ./services/frontend
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
     container_name: hackathon-frontend
     profiles: ["frontend", "all"]
+    restart: unless-stopped
+    read_only: true
     expose:
       - "8082"
     networks:
       - hackathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   java-backend:
     build:
@@ -106,22 +141,23 @@ services:
         DB_USERNAME: ${DB_USER}
         DB_PASSWORD: ${DB_PASSWORD}
         DB_NAME: ${DB_NAME}
-
     container_name: hackathon-java
     profiles: ["java", "all"]
+    restart: unless-stopped
     expose:
       - "8080"
     env_file: .env
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - RABBIT_HOST=rabbitmq
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBIT_HOST: rabbitmq
     networks:
       - hackathon-net
     depends_on:
@@ -129,17 +165,31 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   go-backend:
-    build: ./services/go-backend
+    build:
+      context: ./services/go-backend
+      dockerfile: Dockerfile
     container_name: hackathon-go
     profiles: ["go", "all"]
+    restart: unless-stopped
+    read_only: true
     expose:
       - "8081"
     env_file: .env
     environment:
-      - DB_HOST=postgres
-      - RABBIT_HOST=rabbitmq
+      DB_HOST: postgres
+      RABBIT_HOST: rabbitmq
     networks:
       - hackathon-net
     depends_on:
@@ -147,17 +197,29 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   ml-service:
-    build: ./services/ml-service
+    build:
+      context: ./services/ml-service
+      dockerfile: Dockerfile
     container_name: hackathon-ml
     profiles: ["ml", "all"]
+    restart: unless-stopped
     expose:
       - "8083"
     env_file: .env
     environment:
-      - DB_HOST=postgres
-      - RABBIT_HOST=rabbitmq
+      DB_HOST: postgres
+      RABBIT_HOST: rabbitmq
     networks:
       - hackathon-net
     depends_on:
@@ -165,7 +227,24 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
 networks:
   hackathon-net:
     driver: bridge
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  pgadmin-data:
+  caddy-data:
+  caddy-config:
+
