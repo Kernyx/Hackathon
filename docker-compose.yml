@@ -97,13 +97,19 @@ services:
       - hackathon-net
 
   java-backend:
-    build: ./services/ai-agent-service
+    build:
+      context: .
+      dockerfile: services/ai-agent-service/Dockerfile
+
     container_name: hackathon-java
     profiles: ["java", "all"]
     expose:
       - "8080"
     env_file: .env
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=${DB_NAME}
