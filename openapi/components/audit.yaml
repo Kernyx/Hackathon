@@ -8,7 +8,7 @@ servers:
 
 components:
   schemas:
-    AIAgent:
+    AiAgent:
       type: object
       required:
         - id
@@ -27,27 +27,25 @@ components:
 paths:
   /events:
     post:
-      tags: [AI Agent Logs]
+      tags: [Audit Service]
       summary: Publish AI log
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
-              required:
               properties:
                 event_type:
                   type: string
                   description: Тип события для ML обработки
                 source_agent:
-                  $ref: '#/components/schemas/AIAgent'
+                  $ref: '#/components/schemas/AiAgent'
                   description: ИИ агент - инициатор общения
                 target_agents:
                   type: array
                   description: ИИ агент(ы) - получатели сообщения
                   items:
-                    $ref: '#/components/schemas/AIAgent'
+                    $ref: '#/components/schemas/AiAgent'
                 timestamp:
                   type: string
                   format: date-time
@@ -68,3 +66,6 @@ paths:
                         - happy
                   required:
                     - message
+      responses:
+        '201':
+          description: Event published

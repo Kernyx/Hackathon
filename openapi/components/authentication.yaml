@@ -10,6 +10,7 @@ servers:
 paths:
   /signup:
     post:
+      tags: [Authentication Service]
       summary: Sign up
       requestBody:
         required: true
@@ -31,6 +32,7 @@ paths:
 
   /signin:
     post:
+      tags: [Authentication Service]
       summary: Sign in
       requestBody:
         required: true
@@ -50,6 +52,7 @@ paths:
 
   /refresh-token:
     get:
+      tags: [Authentication Service]
       summary: Refresh access token
       parameters:
         - name: refreshToken

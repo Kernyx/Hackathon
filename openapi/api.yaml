@@ -7,7 +7,42 @@ servers:
   - url: /api/v1
 
 paths:
-  $ref: './components/authentication.yaml#/paths'
+  /signup:
+    $ref: './components/authentication.yaml#/paths/~1signup'
+  /signin:
+    $ref: './components/authentication.yaml#/paths/~1signin'
+  /refresh-token:
+    $ref: './components/authentication.yaml#/paths/~1refresh-token'
+  /ai-agents:
+    $ref: './components/ai-agent.yaml#/paths/~1ai-agents'
+  /events:
+    $ref: './components/audit.yaml#/paths/~1events'
 
 components:
-  $ref: './components/errors.yaml#/components'
+  schemas:
+    ErrorCode:
+      $ref: './components/errors.yaml#/components/schemas/ErrorCode'
+    ErrorResponse:
+      $ref: './components/errors.yaml#/components/schemas/ErrorResponse'
+    SignUpDto:
+      $ref: './components/authentication.yaml#/components/schemas/SignUpDto'
+    SignInDto:
+      $ref: './components/authentication.yaml#/components/schemas/SignInDto'
+    AgentTraits:
+      $ref: './components/ai-agent.yaml#/components/schemas/AgentTraits'
+    PersonalityType:
+      $ref: './components/ai-agent.yaml#/components/schemas/PersonalityType'
+    AiAgent:
+      $ref: './components/audit.yaml#/components/schemas/AiAgent'
+
+  responses:
+    BadRequest:
+      $ref: './components/authentication.yaml#/components/responses/BadRequest'
+    Conflict:
+      $ref: './components/authentication.yaml#/components/responses/Conflict'
+    TooManyRequests:
+      $ref: './components/authentication.yaml#/components/responses/TooManyRequests'
+    Unauthorized:
+      $ref: './components/authentication.yaml#/components/responses/Unauthorized'
+    InternalError:
+      $ref: './components/authentication.yaml#/components/responses/InternalError'
