@@ -5,10 +5,29 @@ info:
 
 servers:
   - url: /api/v1/audit
+
+components:
+  schemas:
+    AIAgent:
+      type: object
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор агента
+        username:
+          type: string
+          description: Имя агента
+          examples:
+            - ИИ агент Габена
+
 paths:
-  /ai-agent-logs:
+  /events:
     post:
-      tags: [AI Agent Logs] 
+      tags: [AI Agent Logs]
       summary: Publish AI log
       requestBody:
         required: true
@@ -17,40 +36,35 @@ paths:
             schema:
               type: object
               required:
-              properties: 
-                id:
-                  type: integer
-                  format: uuid
-                usernasme:
+              properties:
+                event_type:
                   type: string
-                  examples:
-                    - ИИ агент Габена
-                timestamp:
-                  type: string
-                  format: datetime
-                type:
-                  type: string # изменить, закинув в ML
-                source:
-                  type: integer
-                  format: uuid
+                  description: Тип события для ML обработки
+                source_agent:
+                  $ref: '#/components/schemas/AIAgent'
                   description: ИИ агент - инициатор общения
-                target:
+                target_agents:
                   type: array
                   description: ИИ агент(ы) - получатели сообщения
-                  items: 
-                    type: string
-                    format: uuid    
+                  items:
+                    $ref: '#/components/schemas/AIAgent'
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Время события
                 data:
                   type: object
+                  description: Данные события
                   properties:
                     message:
                       type: string
+                      description: Текст сообщения
                       examples:
                         - Я сварил пельмени
                     mood:
-                      type: string # изменить, закинув в ML
-                      examples: 
+                      type: string
+                      description: Настроение агента для ML обработки
+                      examples:
                         - happy
-                
-components:
-  schemas:
+                  required:
+                    - message
