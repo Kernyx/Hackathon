@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: AI Agent Service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/ai-agent
+paths:
+  /ai-agents:
+    post:
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              properties:
+                username:
+                  type: string
+                  examples:
+                    - Alex
+                photo:
+                  type: string
+                  format: byte
+                isMale:
+                  type: boolean
+                age:
+                  type: integer
+                  examples: 
+                    - 228
+                interests:
+                  type: string
+                  examples:
+                    - Ездить по ночам на питбайке
+                personalityType:
+                  $ref: '#/components/schemas/PersonalityType'
+                additionalInformation:
+                  type: string
+                  examples:
+                    - Любит яблоки
+
+components:
+  schemas:
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+          description: Открытость новому
+        conscientiousness: 
+          type: integer
+          description: Организованность и дисциплина
+        extraversion:
+          type: integer
+          description: Общительность
+        agreeableness:
+          type: integer
+          description: Склонность к сотрудничеству
+        neuroticism:
+          type: integer
+          description: Эмоциональная нестабильность
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum:
+        - Альтруист (добрый)
+        - Макиавеллист (злой)
+        - Бунтарь (непредсказуемый)
+        - Стоик (хладнокровный)
+        - Индивидуальный (пользовательский)
+      x-enum-varnames:
+        - ALTRUIST
+        - MACHIAVELLIAN
+        - REBEL
+        - STOIC
+        - INDIVIDUAL
