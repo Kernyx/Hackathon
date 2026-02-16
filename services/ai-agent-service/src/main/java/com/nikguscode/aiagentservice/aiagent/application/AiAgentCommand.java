@@ -2,8 +2,10 @@ package com.nikguscode.aiagentservice.aiagent.application;
 
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgentTraits;
 import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
+import java.util.UUID;
 
-public record AiAgentSnapshot(
+public record AiAgentCommand(
+    UUID userId,
     String username,
     String photoLink,
     boolean isMale,

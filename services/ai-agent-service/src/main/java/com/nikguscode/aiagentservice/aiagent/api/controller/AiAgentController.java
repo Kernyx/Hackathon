@@ -1,8 +1,9 @@
 package com.nikguscode.aiagentservice.aiagent.api.controller;
 
 import com.nikguscode.aiagentservice.aiagent.api.dto.AgentCreateDto;
+import com.nikguscode.aiagentservice.aiagent.api.dto.AgentUpdateDto;
 import com.nikguscode.aiagentservice.aiagent.api.mapper.AiAgentWebMapper;
-import com.nikguscode.aiagentservice.aiagent.application.AiAgentSnapshot;
+import com.nikguscode.aiagentservice.aiagent.application.AiAgentCommand;
 import com.nikguscode.aiagentservice.aiagent.application.AiAgentUsecase;
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgent;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,24 +27,30 @@ public class AiAgentController {
   private final AiAgentWebMapper mapper;
   private final AiAgentUsecase aiAgentUsecase;
 
-  @PostMapping("/ai-agents")
+  @PostMapping("/agents")
   public ResponseEntity<String> createAiAgent(@RequestBody @Validated AgentCreateDto dto) {
-    System.out.println(dto);
-    AiAgentSnapshot snapshot = mapper.toSnapshot(dto);
-    System.out.println(snapshot);
-    aiAgentUsecase.registerAgent(snapshot);
+    AiAgentCommand command = mapper.toCommand(dto);
+    aiAgentUsecase.registerAgent(command);
     return ResponseEntity.status(HttpStatus.CREATED).body("ok");
   }
 
+  @PutMapping("/agents/{agentId}")
+  public ResponseEntity<String> updateAiAgent(
+      @PathVariable("agentId") UUID agentId, @RequestBody @Validated AgentUpdateDto dto) {
+    AiAgentCommand command = mapper.toCommand(dto);
+    aiAgentUsecase.updateAgent(command, agentId);
+    return ResponseEntity.ok().body("Updated");
+  }
+
   @DeleteMapping("/agents/{agentId}")
-  public ResponseEntity<String> deleteAiAgent(@PathVariable UUID agentId) {
+  public ResponseEntity<String> deleteAiAgent(@PathVariable("agentId") UUID agentId) {
     aiAgentUsecase.removeAgent(agentId);
     return ResponseEntity.status(HttpStatus.OK).body("Deleted");
   }
 
   @GetMapping("/agents/{agentId}")
-  public ResponseEntity<AiAgent> getAiAgent(@PathVariable UUID agentId) {
-    AiAgent agent = aiAgentUsecase.getAgent(agentId);
+  public ResponseEntity<AiAgent> getAiAgent(@PathVariable("agentId") UUID agentId) {
+    AiAgent agent = aiAgentUsecase.findAgent(agentId);
     return ResponseEntity.status(HttpStatus.OK).body(agent);
   }
 }
