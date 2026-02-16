@@ -13,15 +13,15 @@ export default function Logo({ className }: LogoProps) {
                         x2="100%" y2="0%"
                         gradientUnits="objectBoundingBox">
 
-        <stop offset="0%" stop-color="#cfcfcf"/>
-        <stop offset="30%" stop-color="#9e9e9e"/>
+        <stop offset="0%" stopColor="#cfcfcf"/>
+        <stop offset="30%" stopColor="#9e9e9e"/>
 
-        <stop offset="48%" stop-color="#ffffff"/>
-        <stop offset="50%" stop-color="#ffffff"/>
-        <stop offset="52%" stop-color="#ffffff"/>
+        <stop offset="48%" stopColor="#ffffff"/>
+        <stop offset="50%" stopColor="#ffffff"/>
+        <stop offset="52%" stopColor="#ffffff"/>
 
-        <stop offset="70%" stop-color="#9e9e9e"/>
-        <stop offset="100%" stop-color="#cfcfcf"/>
+        <stop offset="70%" stopColor="#9e9e9e"/>
+        <stop offset="100%" stopColor="#cfcfcf"/>
 
 
         <animateTransform

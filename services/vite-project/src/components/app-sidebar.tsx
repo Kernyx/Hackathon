@@ -128,7 +128,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {!open && (
           <div 
             onMouseEnter={() => setOpen(true)}
-            className="fixed left-0 top-1/2 -translate-y-1/2 z-[60] flex items-center justify-center w-8 h-24 bg-card border border-l-0 border-border rounded-r-xl cursor-pointer hover:bg-accent transition-colors shadow-md"
+            className="fixed left-0 top-1/2 -translate-y-1/2 z-60 flex items-center justify-center w-8 h-24 bg-card border border-l-0 border-border rounded-r-xl cursor-pointer hover:bg-accent transition-colors shadow-md"
           >
             <ChevronRight className="h-4 w-4 text-primary animate-pulse" />
           </div>
@@ -143,12 +143,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         >
           <Sidebar 
             collapsible="none" 
-            className="w-[260px] h-full border-r border-border shadow-2xl"
+            className="w-65 h-full border-r border-border shadow-2xl"
             {...props}
           >
             <SidebarHeader className="border-b ">
               <a href="#" className="flex items-center justify-start">
-                    <Logo className="!size-20 shrink-0 ml-0"/>
+                    <Logo className="size-20! shrink-0 ml-0"/>
                   </a>
             </SidebarHeader>
             
@@ -169,12 +169,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <div className="h-screen border-r border-border bg-card">
       <Sidebar 
         collapsible="none" 
-        className="w-[260px] h-full"
+        className="w-65 h-full"
         {...props}
       >
         <SidebarHeader className="border-b">
           <a href="#" className="flex items-center justify-start">
-            <Logo className="!size-20 shrink-0 ml-0"/>
+            <Logo className="size-20! shrink-0 ml-0"/>
           </a>
         </SidebarHeader>
         
