@@ -5,6 +5,7 @@ import (
 	"audite-service/internal/handlers"
 	"audite-service/internal/processor"
 	"audite-service/internal/storage"
+	"audite-service/internal/websocket"
 	"log"
 	"os"
 	"os/signal"
@@ -33,12 +34,17 @@ func main() {
 	}
 	log.Println("Connected to Redis")
 
+	hub := websocket.NewHub()
+	go hub.Run()
+
 	eventChan := make(chan openapi.PostEventsJSONRequestBody, 1000)
 
-	proc := processor.NewEventProcessor(eventChan, store)
+	proc := processor.NewEventProcessor(eventChan, store, hub)
 	proc.Start()
 
 	e := echo.New()
+	e.HidePort = true
+	e.HideBanner = true
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
@@ -46,10 +52,13 @@ func main() {
 
 	eventHandler := handlers.NewEventHandler(eventChan)
 	feedHandler := handlers.NewFeedHandler(store)
+	wsHandler := handlers.NewWebSocketHandler(hub)
 
 	api := e.Group("/api/v1/audit")
 	api.POST("/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
+	api.GET("/ws", wsHandler.ServeWS)
+	api.GET("/ws/stats", wsHandler.GetStats)
 
 	go func() {
 		if err := e.Start(":8083"); err != nil {
