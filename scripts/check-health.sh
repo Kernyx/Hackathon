@@ -94,14 +94,23 @@ for service in "${SERVICES[@]}"; do
         # Проверка состояния (running vs exited)
         if [ "$STATE" == "running" ]; then
              # Проверка Healthcheck (если есть)
-             if echo "$STATUS_TEXT" | grep -q "(healthy)"; then
+             if echo "$STATUS_TEXT" | grep -qi "healthy)" && ! echo "$STATUS_TEXT" | grep -qi "unhealthy"; then
                  print_status "OK" "$service: Running & Healthy"
-             elif echo "$STATUS_TEXT" | grep -q "(unhealthy)"; then
+             elif echo "$STATUS_TEXT" | grep -qi "unhealthy"; then
                  print_status "FAIL" "$service: Running but UNHEALTHY"
-             elif echo "$STATUS_TEXT" | grep -q "(starting)"; then
-                 print_status "WARN" "$service: Starting..."
+             elif echo "$STATUS_TEXT" | grep -qi "starting"; then
+                 print_status "WARN" "$service: Still starting up..."
              else
-                 print_status "OK" "$service: Running (no healthcheck)"
+                 # Может быть контейнер без healthcheck, или healthcheck ещё не запустился
+                 # Проверяем есть ли у него healthcheck вообще
+                 HAS_HC=$(docker inspect "$service" --format='{{.State.Health.Status}}' 2>/dev/null || echo "none")
+                 if [ "$HAS_HC" == "starting" ]; then
+                     print_status "WARN" "$service: Healthcheck starting..."
+                 elif [ "$HAS_HC" == "none" ] || [ -z "$HAS_HC" ]; then
+                     print_status "OK" "$service: Running (no healthcheck)"
+                 else
+                     print_status "OK" "$service: Running ($HAS_HC)"
+                 fi
              fi
         else
              EXIT_CODE=$(docker inspect "$service" --format='{{.State.ExitCode}}' 2>/dev/null)
