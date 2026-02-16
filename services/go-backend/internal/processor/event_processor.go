@@ -3,6 +3,8 @@ package processor
 import (
 	"audite-service/internal/api/openapi"
 	"audite-service/internal/storage"
+	"audite-service/internal/websocket"
+	"encoding/json"
 	"log"
 	"time"
 )
@@ -10,12 +12,14 @@ import (
 type EventProcessor struct {
 	eventChan chan openapi.PostEventsJSONRequestBody
 	store     *storage.RedisStore
+	hub       *websocket.Hub
 }
 
-func NewEventProcessor(eventChan chan openapi.PostEventsJSONRequestBody, store *storage.RedisStore) *EventProcessor {
+func NewEventProcessor(eventChan chan openapi.PostEventsJSONRequestBody, store *storage.RedisStore, hub *websocket.Hub) *EventProcessor {
 	return &EventProcessor{
 		eventChan: eventChan,
 		store:     store,
+		hub:       hub,
 	}
 }
 
@@ -46,5 +50,16 @@ func (p *EventProcessor) processEvent(event openapi.PostEventsJSONRequestBody) e
 		return err
 	}
 
+	if p.hub != nil && p.hub.ClientCount() > 0 {
+		messageBytes, err := json.Marshal(enrichedEvent)
+		if err != nil {
+			log.Printf("Failed to marshal event for WebSocket: %v", err)
+		} else {
+			p.hub.Broadcast(messageBytes)
+			log.Printf("Event broadcasted to WebSocket clients")
+		}
+	}
+
+	log.Printf("Event processed: type=%s", *event.EventType)
 	return nil
 }
