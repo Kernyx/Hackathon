@@ -24,6 +24,7 @@ public abstract class AiAgentJooqMapper {
 
     return AiAgent.restore(
         record.getId(),
+        record.getUserId(),
         record.getUsername(),
         record.getPhotoLink(),
         Boolean.TRUE.equals(record.getIsMale()),
