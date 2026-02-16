@@ -13,7 +13,7 @@ func main() {
 	e := echo.New()
 	h := handlers.NewEventHandler(eventChan)
 
-	openapi.RegisterHandlers(e, h)
+	openapi.RegisterHandlersWithBaseURL(e, h, "/api/v1/audit")
 
 	e.Logger.Fatal(e.Start(":8083"))
 }
