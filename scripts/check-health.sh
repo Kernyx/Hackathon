@@ -111,30 +111,31 @@ for service in "${SERVICES[@]}"; do
 done
 echo ""
 
-# === 3. ENDPOINTS REACHABILITY (INTERNAL) ===
-echo -e "${BLUE}🔌 Internal Connectivity (via curl)${NC}"
+# === 3. ENDPOINTS REACHABILITY (INTERNAL via Docker network) ===
+echo -e "${BLUE}🔌 Internal Connectivity (via Caddy → services)${NC}"
 
 check_url() {
     local name="$1"
     local url="$2"
     local expected_code="$3"
     
-    # -L follow redirects, -k ignore SSL verify for localhost/check
     HTTP_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$url")
     if [[ "$HTTP_CODE" == "$expected_code" || "$HTTP_CODE" == "200" || "$HTTP_CODE" == "401" ]]; then
-        print_status "OK" "$name ($url) -> $HTTP_CODE"
+        print_status "OK" "$name -> $HTTP_CODE"
     else
         if [ "$HTTP_CODE" == "000" ]; then
-             print_status "FAIL" "$name ($url) -> Connection Refused / Timeout"
+             print_status "FAIL" "$name -> Connection Refused / Timeout"
         else
-             print_status "FAIL" "$name ($url) -> $HTTP_CODE (Expected: $expected_code)"
+             print_status "FAIL" "$name -> $HTTP_CODE (Expected: $expected_code)"
         fi
     fi
 }
 
-check_url "Frontend" "http://localhost:8082" "200"
-check_url "Java Actuator" "http://localhost:8080/actuator/health" "200"
-check_url "Go Audit Feed" "http://localhost:8083/api/v1/audit/feed" "200"
+# Проверяем через Caddy (единственный сервис с пробросом портов наружу)
+check_url "Frontend (via Caddy)" "https://besthackaton.duckdns.org" "200"
+check_url "Java Actuator (via Caddy)" "https://api.besthackaton.duckdns.org/actuator/health" "200"
+check_url "Go Audit Feed (via Caddy)" "https://api.besthackaton.duckdns.org/api/v1/audit/feed" "200"
+check_url "ML Service (via Caddy)" "https://api.besthackaton.duckdns.org/api/v1/ml/" "200"
 echo ""
 
 # === 4. PUBLIC DOMAIN & SSL ===
