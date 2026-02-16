@@ -146,7 +146,7 @@ services:
     networks:
       - hackathon-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

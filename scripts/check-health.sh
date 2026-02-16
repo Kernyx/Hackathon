@@ -141,7 +141,7 @@ check_service() {
 }
 
 check_service "Frontend /health" "hackathon-frontend" \
-    "wget -qO- http://localhost:8082/health"
+    "curl -sf http://localhost:8082/health"
 
 check_service "Java /actuator/health" "hackathon-java" \
     "wget -qO- http://localhost:8080/actuator/health"
