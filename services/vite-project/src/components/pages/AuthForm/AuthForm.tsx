@@ -1,32 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AuthForm.css';
-import { DefaultService } from "../../api/services/DefaultService";
+import {AuthenticationServiceService} from '../../../../api/services/AuthenticationServiceService.ts';
 import Logo from './Logo.tsx'
+import LoadingPage from './LoadingPage.tsx';
+import { useNavigate } from 'react-router-dom';
+
+const ERROR_MESSAGES: Record<string, string> = {
+  "A-1000": "Внутренняя ошибка сервера. Попробуйте позже.",
+  "A-S1001": "Неверные данные для регистрации.",
+  "A-L1001": "Неверный логин или пароль.",
+  "A-L1002": "Аккаунт заблокирован. Обратитесь в поддержку.",
+  "A-L1003": "Слишком много попыток входа. Подождите немного.",
+
+  "A-AT1001": "Сессия истекла. Войдите заново.",
+  "A-AT1002": "Ошибка безопасности (неверная подпись токена).",
+
+  "A-RT1001": "Сессия обновления истекла. Пожалуйста, авторизуйтесь снова.",
+  "A-RT1002": "Некорректный запрос на обновление сессии.",
+
+  "A-R1001": "У вас недостаточно прав для этого действия.",
+  "A-R1002": "Доступ к ресурсу запрещен.",
+  "A-R1003": "Ваша роль не позволяет выполнить это действие.",
+};
 
 const AuthForm: React.FC = () => {
-    // Типизируем стейт как boolean
     const [isSignUp, setIsSignUp] = useState<boolean>(false);
-    const [isSignIn, setIsSignIn] = useState<boolean>(false);
+    const [isSignIn, setIsSignIn] = useState<boolean>(true);
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [emailError, setEmailError] = useState<string | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [username, setUsername] = useState("");
+
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
     
     const regularExpression = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
-
+    const navigate = useNavigate();
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsInitialLoading(false);
+        }, 2500);
+        return () => clearTimeout(timer);
+    }, []);
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         
-        // Сбрасываем старые, чтобы анимация входа проигралась заново
         setEmailError(null);
         setPasswordError(null);
         setServerError(null);
         
         let hasError = false;
 
-            // Проверка почты
         if (!/\S+@\S+\.\S+/.test(email)) {
                 setEmailError("Введите корректный email");
                 hasError = true;
@@ -42,10 +68,12 @@ const AuthForm: React.FC = () => {
         }
 
         if (hasError) return;
+
+        setIsLoading(true);
         
         try {
             if (isSignUp) {
-                await DefaultService.postSignup({
+                await AuthenticationServiceService.postSignup({
                 username,
                 email,
                 password,
@@ -53,7 +81,7 @@ const AuthForm: React.FC = () => {
 
                 alert("Регистрация успешна 🎉");
             } else if (isSignIn) {
-                await DefaultService.postSignin({
+                await AuthenticationServiceService.postSignin({
                 email,
                 password,
                 });
@@ -61,16 +89,38 @@ const AuthForm: React.FC = () => {
                 alert("Вход выполнен 🚀");
             }
         } catch (e: any) {
-            const err = e.body;
+            // 1. Сначала выведем вообще всё, что пришло, чтобы ты в консоли увидел структуру
+            console.log("Full Error Object:", e);
 
-            if (!err) {
-                setServerError("Ошибка сети");
-                return;
+            // 2. Пытаемся достать код разными путями (зависит от версии кодогенератора)
+            const errorCode = e.body?.code || e.code || (typeof e === 'string' ? e : null);
+            
+            console.log("Extracted Error Code:", errorCode);
+
+            if (!errorCode && !e.body) {
+                setServerError("Ошибка сети или сервер недоступен");
+            } else {
+                const friendlyMessage = ERROR_MESSAGES[errorCode] || `Ошибка сервера: ${errorCode || 'Unknown'}`;
+                setServerError(friendlyMessage);
             }
 
-            setServerError(err.message);
+            if (e.body?.traceId) {
+                console.warn("Trace ID:", e.body.traceId);
             }
-    };
+
+            setTimeout(() => setServerError(null), 4000);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    if (isInitialLoading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-[#222526]">
+                <LoadingPage /> 
+            </div>
+        );
+    }
 
     const resetForm = () => {
         setEmail("");
@@ -78,8 +128,17 @@ const AuthForm: React.FC = () => {
         setEmailError(null);
         setPasswordError(null);
     };
+
     return (
+        <div data-theme="dark" className="flex items-center justify-center bg-[#1A1A1A]">
+        <div id="auth-custom-scope">
         <div className="flex justify-center items-center h-screen auth-wrapper">
+            <div className="absolute inset-0 bg-cover bg-blue-500/20 blur-[100px] s-64 m-auto rounded-full" />
+            {isLoading && (
+                <div className="fixed inset-0 z-9999 flex justify-center items-center bg-black/50 backdrop-blur-[2px]">
+                        <LoadingPage />
+                </div>
+            )}
             {/* Основной контейнер с переключателем классов */}
             <div className={`auth-container ${isSignUp ? "right-panel-active" : ""}`}>
                 
@@ -118,10 +177,11 @@ const AuthForm: React.FC = () => {
                         </div>
                         <h1 className="font-bold text-2xl mb-6 text-[#E0E0E0]">Создать аккаунт</h1>
                         
-                        <input type="text" placeholder="Имя" value={username} onChange={(e) => setUsername(e.target.value)} className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5" />
+                        <input type="text" placeholder="Имя"  value={username} onChange={(e) => setUsername(e.target.value)} className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5" />
                         <input 
                             type="email" 
                             placeholder="Email" 
+                            autoComplete="username"
                             className={`input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5`} 
                             value={email}
                             onChange={(e) => {
@@ -130,7 +190,7 @@ const AuthForm: React.FC = () => {
                             }}
                             required
                         />
-                        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
+                        <input type="password" placeholder="Пароль" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
 
                         <button className="btn rounded-full bg-[#222526]/0 text-[#E0E0E0] border border-[#E0E0E0] hover:bg-[#222526] px-12 uppercase tracking-wider font-bold text-xs shadow-xl/15">
                             Регистрация
@@ -177,6 +237,7 @@ const AuthForm: React.FC = () => {
                         <input 
                             type="email" 
                             placeholder="Email" 
+                            autoComplete="username"
                             className={`input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5`} 
                             value={email}
                             onChange={(e) => {
@@ -185,7 +246,7 @@ const AuthForm: React.FC = () => {
                             }}
                             required
                         />
-                        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
+                        <input type="password" placeholder="Пароль" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
                         
                         <a href="#" className="text-xs text-base-content/70 my-4 hover:text-[#BFBFBF]">Забыли пароль?</a>
                         
@@ -226,6 +287,7 @@ const AuthForm: React.FC = () => {
                                 onClick={() => {
                                     setIsSignUp(true);
                                     setIsSignIn(false);
+                                    navigate('/signup');
                                     resetForm();
                                 }}
                             >
@@ -235,6 +297,8 @@ const AuthForm: React.FC = () => {
                     </div>
                 </div>
             </div>
+        </div>
+        </div>
         </div>
     );
 };
