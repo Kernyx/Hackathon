@@ -111,31 +111,40 @@ for service in "${SERVICES[@]}"; do
 done
 echo ""
 
-# === 3. ENDPOINTS REACHABILITY (INTERNAL via Docker network) ===
-echo -e "${BLUE}🔌 Internal Connectivity (via Caddy → services)${NC}"
+# === 3. SERVICE ENDPOINTS (inside containers) ===
+echo -e "${BLUE}🔌 Service Endpoints (docker exec)${NC}"
 
-check_url() {
+check_service() {
     local name="$1"
-    local url="$2"
-    local expected_code="$3"
-    
-    HTTP_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$url")
-    if [[ "$HTTP_CODE" == "$expected_code" || "$HTTP_CODE" == "200" || "$HTTP_CODE" == "401" ]]; then
-        print_status "OK" "$name -> $HTTP_CODE"
+    local container="$2"
+    local cmd="$3"
+
+    if ! docker ps --filter "name=^/${container}$" --format '{{.Names}}' | grep -q "$container"; then
+        print_status "WARN" "$name: container not running, skipped"
+        return
+    fi
+
+    if docker exec "$container" sh -c "$cmd" > /dev/null 2>&1; then
+        print_status "OK" "$name: responding"
     else
-        if [ "$HTTP_CODE" == "000" ]; then
-             print_status "FAIL" "$name -> Connection Refused / Timeout"
-        else
-             print_status "FAIL" "$name -> $HTTP_CODE (Expected: $expected_code)"
-        fi
+        print_status "FAIL" "$name: not responding"
     fi
 }
 
-# Проверяем через Caddy (единственный сервис с пробросом портов наружу)
-check_url "Frontend (via Caddy)" "https://besthackaton.duckdns.org" "200"
-check_url "Java Actuator (via Caddy)" "https://api.besthackaton.duckdns.org/actuator/health" "200"
-check_url "Go Audit Feed (via Caddy)" "https://api.besthackaton.duckdns.org/api/v1/audit/feed" "200"
-check_url "ML Service (via Caddy)" "https://api.besthackaton.duckdns.org/api/v1/ml/" "200"
+check_service "Frontend /health" "hackathon-frontend" \
+    "node -e \"require('http').get('http://localhost:8082/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))\""
+
+check_service "Java /actuator/health" "hackathon-java" \
+    "wget -qO- http://localhost:8080/actuator/health"
+
+check_service "Go /api/v1/audit/feed" "hackathon-go" \
+    "wget -qO- http://localhost:8083/api/v1/audit/feed"
+
+check_service "ML /health" "hackathon-ml" \
+    "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8083/health')\""
+
+check_service "Redis PING" "hackathon-redis" \
+    "redis-cli ping"
 echo ""
 
 # === 4. PUBLIC DOMAIN & SSL ===
@@ -143,18 +152,39 @@ echo -e "${BLUE}🌐 Public Domain & SSL${NC}"
 DOMAIN="besthackaton.duckdns.org"
 API_DOMAIN="api.besthackaton.duckdns.org"
 
+check_url() {
+    local name="$1"
+    local url="$2"
+    local expected_code="$3"
+
+    HTTP_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$url")
+    if [[ "$HTTP_CODE" == "$expected_code" || "$HTTP_CODE" == "200" || "$HTTP_CODE" == "401" ]]; then
+        print_status "OK" "$name -> $HTTP_CODE"
+    elif [ "$HTTP_CODE" == "000" ]; then
+        print_status "FAIL" "$name -> Connection Refused / Timeout"
+    else
+        print_status "FAIL" "$name -> $HTTP_CODE (Expected: $expected_code)"
+    fi
+}
+
 # Проверка срока действия сертификата
 EXPIRY_DATE=$(echo | openssl s_client -servername "$DOMAIN" -connect "$DOMAIN":443 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
 
 if [ -n "$EXPIRY_DATE" ]; then
-    print_status "OK" "SSL Certificate for $DOMAIN is valid (Expires: $EXPIRY_DATE)"
-    check_url "Public Frontend" "https://$DOMAIN" "200"
-    check_url "Public API" "https://$API_DOMAIN/api/v1/audit/feed" "200"
+    EXPIRY_EPOCH=$(date -d "$EXPIRY_DATE" +%s 2>/dev/null)
+    DAYS_LEFT=$(( (EXPIRY_EPOCH - $(date +%s)) / 86400 ))
+    if [ "$DAYS_LEFT" -gt 14 ]; then
+        print_status "OK" "SSL $DOMAIN expires in ${DAYS_LEFT} days ($EXPIRY_DATE)"
+    else
+        print_status "WARN" "SSL $DOMAIN expires SOON: ${DAYS_LEFT} days ($EXPIRY_DATE)"
+    fi
 else
-    print_status "WARN" "SSL Certificate check failed (connection refused or no cert?)"
-    # Try HTTP fallback check
-    check_url "Public Frontend (HTTP)" "http://$DOMAIN" "301" # Caddy redirects http->https
+    print_status "WARN" "SSL Certificate check failed (connection refused?)"
 fi
+
+check_url "Public Frontend" "https://$DOMAIN" "200"
+check_url "Public API /actuator/health" "https://$API_DOMAIN/actuator/health" "200"
+check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
 echo ""
 
 # === 5. RESOURCES ===
