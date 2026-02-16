@@ -1,9 +1,0 @@
-target/
-.mvn/
-mvnw
-mvnw.cmd
-.git
-.gitignore
-README.md
-*.log
-.env
