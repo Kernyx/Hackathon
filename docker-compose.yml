@@ -185,7 +185,7 @@ services:
     restart: unless-stopped
     read_only: true
     expose:
-      - "8081"
+      - "8083"
     env_file: .env
     environment:
       DB_HOST: postgres
@@ -198,7 +198,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
