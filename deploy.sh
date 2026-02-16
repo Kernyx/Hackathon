@@ -73,7 +73,7 @@ CHANGED_SERVICES=()
 # dir:service_name
 SERVICES_MAP=(
     "services/frontend:frontend"
-    "services/java-backend:java-backend"
+    "services/ai-agent-service:java-backend"
     "services/go-backend:go-backend"
     "services/ml-service:ml-service"
     "caddy-custom:caddy"
