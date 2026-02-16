@@ -1,15 +1,35 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine  # легковесный образ
+  # Go Audit Service
+  audit-service:
+    build: .
     ports:
-      - "6379:6379"         # стандартный порт Redis
-    volumes:
-      - redis_data:/data    # чтобы данные не пропадали при перезапуке
-    command: redis-server --appendonly yes  # сохранять на диск
+      - "8083:8083"
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=audit
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
 
-  # PostgreSQL тоже добавим сразу (пригодится позже)
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # PostgreSQL
   postgres:
     image: postgres:15-alpine
     environment:
@@ -20,6 +40,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
 volumes:
   redis_data:

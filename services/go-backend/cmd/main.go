@@ -6,6 +6,7 @@ import (
 	"audite-service/internal/processor"
 	"audite-service/internal/storage"
 	"audite-service/internal/websocket"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -23,25 +24,50 @@ func getEnv(key, defaultValue string) string {
 }
 
 func main() {
+	// redis
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
 
-	store := storage.NewRedisStore(redisAddr, redisPassword, 0)
-	defer store.Close()
+	redisStore := storage.NewRedisStore(redisAddr, redisPassword, 0)
+	defer redisStore.Close()
 
-	if err := store.Ping(); err != nil {
+	if err := redisStore.Ping(); err != nil {
 		log.Fatalf("failed to connect to Redis: %v", err)
 	}
 	log.Println("Connected to Redis")
 
+	// postgresql
+	pgHost := getEnv("POSTGRES_HOST", "localhost")
+	pgPort := getEnv("POSTGRES_PORT", "5432")
+	pgUser := getEnv("POSTGRES_USER", "user")
+	pgPassword := getEnv("POSTGRES_PASSWORD", "password")
+	pgDB := getEnv("POSTGRES_DB", "audit")
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		pgHost, pgPort, pgUser, pgPassword, pgDB)
+
+	pgStore, err := storage.NewPostgresStore(connStr)
+	if err != nil {
+		log.Fatal("failed to connect ot PostgreSQL: %v", err)
+	}
+	defer pgStore.Close()
+	log.Println("Connected to PostgreSQL")
+
+	if err := pgStore.RunMigrations(); err != nil {
+		log.Fatalf("failed to run migration: %v", err)
+	}
+
+	// websocker hub
 	hub := websocket.NewHub()
 	go hub.Run()
 
+	// event processor
 	eventChan := make(chan openapi.PostEventsJSONRequestBody, 1000)
 
-	proc := processor.NewEventProcessor(eventChan, store, hub)
+	proc := processor.NewEventProcessor(eventChan, redisStore, pgStore, hub)
 	proc.Start()
 
+	// http server
 	e := echo.New()
 	e.HidePort = true
 	e.HideBanner = true
@@ -51,7 +77,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	eventHandler := handlers.NewEventHandler(eventChan)
-	feedHandler := handlers.NewFeedHandler(store)
+	feedHandler := handlers.NewFeedHandler(redisStore)
 	wsHandler := handlers.NewWebSocketHandler(hub)
 
 	api := e.Group("/api/v1/audit")
