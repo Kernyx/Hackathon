@@ -1,7 +1,7 @@
 package com.nikguscode.aiagentservice.aiagent.application;
 
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgentTraits;
-import com.nikguscode.aiagentservice.api.model.PersonalityType;
+import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
 
 public record AiAgentSnapshot(
     String username,

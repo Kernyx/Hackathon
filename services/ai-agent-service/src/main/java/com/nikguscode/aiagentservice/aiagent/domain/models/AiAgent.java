@@ -1,7 +1,6 @@
 package com.nikguscode.aiagentservice.aiagent.domain.models;
 
 import com.nikguscode.aiagentservice.aiagent.application.AiAgentSnapshot;
-import com.nikguscode.aiagentservice.api.model.PersonalityType;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -34,5 +33,13 @@ public class AiAgent {
         UUID.randomUUID(), snapshot.username(), snapshot.photoLink(), snapshot.isMale(),
         snapshot.age(), snapshot.interests(), snapshot.personalityType(), snapshot.traits(),
         snapshot.additionalInformation());
+  }
+
+  public static AiAgent restore(
+      UUID id, String username, String photoLink, boolean isMale, Integer age, String interests,
+      PersonalityType personalityType, AiAgentTraits traits, String additionalInformation) {
+    return new AiAgent(
+        id, username, photoLink, isMale, age, interests,
+        personalityType, traits, additionalInformation);
   }
 }

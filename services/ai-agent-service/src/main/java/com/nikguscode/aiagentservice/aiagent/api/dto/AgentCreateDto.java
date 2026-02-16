@@ -1,7 +1,7 @@
 package com.nikguscode.aiagentservice.aiagent.api.dto;
 
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgentTraits;
-import com.nikguscode.aiagentservice.api.model.PersonalityType;
+import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
 import jakarta.validation.constraints.NotNull;
 
 public record AgentCreateDto(
@@ -24,4 +24,5 @@ public record AgentCreateDto(
     @NotNull(message = "Traits is required field")
     AiAgentTraits traits,
     String additionalInformation
-) {}
+) {
+}

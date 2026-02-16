@@ -5,6 +5,6 @@ import com.nikguscode.aiagentservice.aiagent.application.AiAgentSnapshot;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
-public interface AgentMapper {
+public interface AiAgentWebMapper {
   AiAgentSnapshot toSnapshot(AgentCreateDto dto);
 }
