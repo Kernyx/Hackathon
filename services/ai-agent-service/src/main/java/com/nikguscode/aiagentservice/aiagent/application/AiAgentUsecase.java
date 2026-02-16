@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 public class AiAgentUsecase {
   private final AiAgentRepository aiAgentRepository;
 
-  public void registerAgent(AiAgentCommand snapshot) {
-    AiAgent agent = AiAgent.createAgent(snapshot);
+  public void registerAgent(AiAgentCommand command) {
+    AiAgent agent = AiAgent.createAgent(command);
+    System.out.println(agent);
     aiAgentRepository.save(agent);
   }
 
@@ -22,9 +23,10 @@ public class AiAgentUsecase {
     aiAgentRepository.delete(aiAgentId);
   }
 
-//  public void updateAgent(UUID aiAgentId) {
-//
-//  }
+  public void updateAgent(AiAgentCommand command, UUID agentId) {
+    AiAgent agent = AiAgent.createAgent(command);
+    aiAgentRepository.update(agent, agentId);
+  }
 
   public AiAgent findAgent(UUID aiAgentId) {
     Optional<AiAgent> aiAgentOpt = aiAgentRepository.findById(aiAgentId);

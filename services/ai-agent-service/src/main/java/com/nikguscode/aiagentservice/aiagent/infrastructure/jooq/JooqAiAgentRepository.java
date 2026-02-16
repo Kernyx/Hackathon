@@ -23,8 +23,8 @@ public class JooqAiAgentRepository implements AiAgentRepository {
 
   @Override
   public void save(AiAgent agent) {
-    AiAgentRecord record = dsl.newRecord(AI_AGENT);
-    aiAgentJooqMapper.updateRecordFromDomain(agent, record);
+    AiAgentRecord record = aiAgentJooqMapper.toRecord(agent);
+    dsl.attach(record);
     record.store();
   }
 
@@ -34,6 +34,22 @@ public class JooqAiAgentRepository implements AiAgentRepository {
         .delete(AI_AGENT)
         .where(AI_AGENT.ID.eq(aiAgentId))
         .execute();
+  }
+
+  @Override
+  public void update(AiAgent agent, UUID agentId) {
+    Optional<AiAgentRecord> recordOpt = dsl
+        .selectFrom(AI_AGENT)
+        .where(AI_AGENT.ID.eq(agentId))
+        .fetchOptional();
+
+    if (recordOpt.isEmpty()) {
+      throw new RuntimeException("Agent not found: " + agent.getId());
+    }
+
+    AiAgentRecord record = recordOpt.get();
+    aiAgentJooqMapper.updateRecordFromDomain(agent, record);
+    record.store();
   }
 
   @Override
