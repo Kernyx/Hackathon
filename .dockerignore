@@ -1,0 +1,7 @@
+data/
+logs/
+backups/
+.git/
+node_modules/
+target/
+*.log
