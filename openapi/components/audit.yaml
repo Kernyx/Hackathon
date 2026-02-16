@@ -65,7 +65,7 @@ components:
 paths:
   /events:
     post:
-      tags: [AI Agent Logs]
+      tags: [Audit Service]
       summary: Publish AI log
       requestBody:
         required: true
@@ -131,7 +131,7 @@ paths:
 
   /feed:
     get:
-      tags: [AI Agent Logs]
+      tags: [Audit Service]
       summary: Get recent events feed
       description: Получить последние события из ленты
       parameters:
