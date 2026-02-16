@@ -1,5 +1,5 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY server.js .
+COPY server.js index.js ./
 EXPOSE 8082
 CMD ["node", "server.js"]

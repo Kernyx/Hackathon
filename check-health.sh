@@ -6,7 +6,20 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-source /opt/hackathon/.env
+# Корень проекта (как в deploy.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${SCRIPT_DIR}"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+else
+    echo "⚠️ Файл .env не найден — используются значения по умолчанию для проверки БД"
+    export DB_USER="${DB_USER:-hackuser}"
+    export DB_NAME="${DB_NAME:-hackdb}"
+fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🏥 Проверка здоровья инфраструктуры хакатона"
@@ -60,7 +73,7 @@ echo ""
 
 # === ПРОВЕРКА БЭКАПОВ ===
 echo "💾 Бэкапы:"
-LATEST_BACKUP=$(ls -t /opt/hackathon/backups/postgres/db_*.sql.gz 2>/dev/null | head -1)
+LATEST_BACKUP=$(ls -t "$PROJECT_ROOT/backups/postgres"/db_*.sql.gz 2>/dev/null | head -1)
 if [ -n "$LATEST_BACKUP" ]; then
     BACKUP_AGE_HOURS=$(( ($(date +%s) - $(stat -c %Y "$LATEST_BACKUP")) / 3600 ))
     if [ "$BACKUP_AGE_HOURS" -lt 24 ]; then
@@ -85,7 +98,7 @@ echo ""
 
 # === ПРОВЕРКА ДИСКОВОГО ПРОСТРАНСТВА ===
 echo "💿 Дисковое пространство:"
-DISK_USAGE=$(df -h /opt/hackathon | awk 'NR==2 {print $5}' | sed 's/%//')
+DISK_USAGE=$(df -h "$PROJECT_ROOT" | awk 'NR==2 {print $5}' | sed 's/%//')
 if [ "$DISK_USAGE" -lt 80 ]; then
     echo -e "${GREEN}✅${NC} Использовано: $DISK_USAGE%"
 else
@@ -95,7 +108,7 @@ echo ""
 
 # === ПРОВЕРКА ЛОГОВ ===
 echo "📋 Последние ошибки в логах:"
-ERROR_COUNT=$(docker compose logs --tail=100 2>/dev/null | grep -i "error\|failed\|fatal" | wc -l)
+ERROR_COUNT=$(cd "$PROJECT_ROOT" && docker compose logs --tail=100 2>/dev/null | grep -i "error\|failed\|fatal" | wc -l)
 if [ "$ERROR_COUNT" -eq 0 ]; then
     echo -e "${GREEN}✅${NC} Ошибок в последних 100 строках логов не найдено"
 else
