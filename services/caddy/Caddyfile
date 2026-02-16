@@ -165,7 +165,7 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/audit* → Audit Service (будущий)
+    # /api/v1/audit* → Go Backend (audit service)
     # ========================================
     handle /api/v1/audit* {
         rate_limit {
@@ -176,12 +176,16 @@ api.besthackaton.duckdns.org {
             }
         }
 
-        # Пока возвращаем заглушку
-        header Content-Type application/json
-        respond `{
-            "status": "service_not_ready",
-            "message": "Audit Service is under development"
-        }` 503
+        reverse_proxy go-backend:8083 {
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 60s
+            }
+
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
     }
 
     # ========================================
@@ -194,9 +198,9 @@ api.besthackaton.duckdns.org {
             "message": "API endpoint not found",
             "available_endpoints": [
                 "/api/v1/auth",
-                "/api/v1/ml",
-                "/api/v1/aiAgent (coming soon)",
-                "/api/v1/audit (coming soon)"
+                "/api/v1/ai-agent",
+                "/api/v1/audit",
+                "/api/v1/ml"
             ]
         }` 404
     }
