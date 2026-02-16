@@ -21,10 +21,9 @@ add_service() {
 # Переход в корень проекта
 cd "$PROJECT_ROOT" || { echo "Ошибка: директория $PROJECT_ROOT не найдена"; exit 1; }
 
-# Создание директорий для логов и данных (первый запуск / после чистой клонизации)
-mkdir -p "$PROJECT_ROOT/logs" \
-         "$PROJECT_ROOT/data/postgres" "$PROJECT_ROOT/data/rabbitmq" \
-         "$PROJECT_ROOT/data/pgadmin" "$PROJECT_ROOT/data/caddy" \
+# Создание директорий для логов, данных и бэкапов (первый запуск)
+mkdir -p "$PROJECT_ROOT/logs/caddy" \
+         "$PROJECT_ROOT/data/postgres" \
          "$PROJECT_ROOT/backups/postgres"
 
 # Проверка наличия .env
@@ -60,7 +59,7 @@ CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
 if [[ -z "$CHANGED" ]]; then
     log "ℹ️ Нет изменений в коммите — проверка здоровья и выход"
     docker compose ps --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | tee -a "$LOG_FILE" || true
-    [ -f "$PROJECT_ROOT/check-health.sh" ] && bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
+    [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
     echo "----------------------------------------" >> "$LOG_FILE"
     exit 0
 fi
@@ -76,8 +75,19 @@ SERVICES_MAP=(
     "services/ai-agent-service:java-backend"
     "services/go-backend:go-backend"
     "services/ml-service:ml-service"
-    "caddy-custom:caddy"
+    "services/caddy:caddy"
 )
+
+# Если изменился docker-compose.yml или .env — пересобираем всё
+if echo "$CHANGED" | grep -qE '^(docker-compose\.yml|\.env)$'; then
+    log "📝 Изменения в конфигурации — полная пересборка"
+    docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
+    log "✅ Деплой завершён (полная пересборка)"
+    docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
+    [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
+    echo "----------------------------------------" >> "$LOG_FILE"
+    exit 0
+fi
 
 for mapping in "${SERVICES_MAP[@]}"; do
     dir="${mapping%%:*}"
@@ -97,9 +107,9 @@ fi
 
 log "✅ Деплой завершён"
 docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
-if [ -f "$PROJECT_ROOT/check-health.sh" ]; then
-    bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
+if [ -f "$PROJECT_ROOT/scripts/check-health.sh" ]; then
+    bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
 else
-    log "⚠️ check-health.sh не найден — пропуск проверки здоровья"
+    log "⚠️ scripts/check-health.sh не найден — пропуск проверки здоровья"
 fi
 echo "----------------------------------------" >> "$LOG_FILE"

@@ -42,7 +42,7 @@ fi
 CONFIG_BACKUP="$BACKUP_DIR/configs_${DATE}_${TIMESTAMP}.tar.gz"
 tar -czf "$CONFIG_BACKUP" \
     -C "$PROJECT_ROOT" \
-    .env docker-compose.yml Caddyfile \
+    .env docker-compose.yml services/caddy/Caddyfile \
     2>/dev/null || true
 
 log "📦 Конфиги сохранены: $CONFIG_BACKUP"

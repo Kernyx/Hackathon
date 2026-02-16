@@ -23,6 +23,44 @@ components:
           description: Имя агента
           examples:
             - ИИ агент Габена
+    
+    Event:
+      type: object
+      description: Событие из ленты
+      properties:
+        event_type:
+          type: string
+          description: Тип события
+        source_agent:
+          $ref: '#/components/schemas/AiAgent'
+          description: ИИ агент - инициатор
+        target_agents:
+          type: array
+          description: ИИ агенты - получатели
+          items:
+            $ref: '#/components/schemas/AiAgent'
+        timestamp:
+          type: string
+          format: date-time
+          description: Время события
+        data:
+          type: object
+          description: Данные события
+          properties:
+            message:
+              type: string
+              description: Текст сообщения
+            mood:
+              type: string
+              description: Настроение агента
+        processed_at:
+          type: string
+          format: date-time
+          description: Время обработки события
+        processed_ts:
+          type: integer
+          format: int64
+          description: Unix timestamp обработки
 
 paths:
   /events:
@@ -30,6 +68,7 @@ paths:
       tags: [Audit Service]
       summary: Publish AI log
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -67,5 +106,65 @@ paths:
                   required:
                     - message
       responses:
-        '201':
-          description: Event published
+        '202':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    examples: 
+                      - accepted
+                  type:
+                    type: string
+                    examples: 
+                      - message_sent
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request
+        '429':
+          description: Too many events
+
+  /feed:
+    get:
+      tags: [Audit Service]
+      summary: Get recent events feed
+      description: Получить последние события из ленты
+      parameters:
+        - name: limit
+          in: query
+          description: Количество событий (максимум 100)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of recent events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  count:
+                    type: integer
+                    description: Количество возвращенных событий
+                    examples: 
+                      - 10
+                  limit:
+                    type: integer
+                    description: Запрошенный лимит
+                    examples: 
+                      - 20
+        '500':
+          description: Internal server error
