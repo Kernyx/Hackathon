@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN npx vite build
 
 # Runtime stage — nginx для отдачи статики
 FROM nginx:1.27-alpine
