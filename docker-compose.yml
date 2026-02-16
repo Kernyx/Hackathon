@@ -97,7 +97,7 @@ services:
       - hackathon-net
 
   java-backend:
-    build: ./services/java-backend
+    build: ./services/ai-agent-service
     container_name: hackathon-java
     profiles: ["java", "all"]
     expose:
