@@ -2,10 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SignInDto } from '../models/SignInDto';
+import type { SignUpDto } from '../models/SignUpDto';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class DefaultService {
+export class AuthenticationServiceService {
     /**
      * Sign up
      * @param requestBody
@@ -13,11 +15,7 @@ export class DefaultService {
      * @throws ApiError
      */
     public static postSignup(
-        requestBody: {
-            username: string;
-            email: string;
-            password: string;
-        },
+        requestBody: SignUpDto,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -39,10 +37,7 @@ export class DefaultService {
      * @throws ApiError
      */
     public static postSignin(
-        requestBody: {
-            email: string;
-            password: string;
-        },
+        requestBody: SignInDto,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',

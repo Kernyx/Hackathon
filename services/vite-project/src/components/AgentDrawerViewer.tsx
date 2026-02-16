@@ -4,13 +4,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Drawer,
   DrawerClose,
   DrawerContent,
@@ -29,7 +22,7 @@ export function AgentDrawerViewer({ agent, children }: { agent: any, children: R
       <DrawerTrigger asChild>
         {children}
       </DrawerTrigger>
-      <DrawerContent className={!isMobile ? "h-full w-[400px] ml-auto rounded-l-xl" : ""}>
+      <DrawerContent className={!isMobile ? "h-full w-100 ml-auto rounded-l-xl" : ""}>
         <DrawerHeader className="gap-1">
           <DrawerTitle>{agent.name}</DrawerTitle>
           <DrawerDescription>
