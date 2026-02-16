@@ -34,16 +34,22 @@ const AuthForm: React.FC = () => {
     const [username, setUsername] = useState("");
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
-    
+    const [isInitialLoading, setIsInitialLoading] = useState<boolean>(() => {
+            return !sessionStorage.getItem('visited_auth'); 
+    });
+        
     const regularExpression = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     const navigate = useNavigate();
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsInitialLoading(false);
-        }, 2500);
-        return () => clearTimeout(timer);
-    }, []);
+        if (isInitialLoading) {
+            const timer = setTimeout(() => {
+                setIsInitialLoading(false);
+                // Помечаем, что первый визит прошел
+                sessionStorage.setItem('visited_auth', 'true');
+            }, 2500);
+            return () => clearTimeout(timer);
+        }
+    }, [isInitialLoading]);
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         
@@ -60,16 +66,17 @@ const AuthForm: React.FC = () => {
         }
 
         if (!regularExpression.test(password)) {
-                setTimeout(() => {
-                    setPasswordError("Пароль должен быть минимум 8 символов");
-                    setTimeout(() => setPasswordError(null), 3000);
-                }, 100); 
+                setPasswordError("Пароль должен быть минимум 8 символов");
                 hasError = true;
         }
 
-        if (hasError) return;
-
-        setIsLoading(true);
+        if (hasError) {
+                setTimeout(() => {
+                    setEmailError(null);
+                    setPasswordError(null);
+                }, 3000);
+                return;
+        }
         
         try {
             if (isSignUp) {
@@ -78,18 +85,18 @@ const AuthForm: React.FC = () => {
                 email,
                 password,
                 });
-
+                setIsLoading(false);
                 alert("Регистрация успешна 🎉");
             } else if (isSignIn) {
                 await AuthenticationServiceService.postSignin({
                 email,
                 password,
                 });
-
+                setIsLoading(false);
                 alert("Вход выполнен 🚀");
             }
         } catch (e: any) {
-            // 1. Сначала выведем вообще всё, что пришло, чтобы ты в консоли увидел структуру
+            setIsLoading(false);
             console.log("Full Error Object:", e);
 
             // 2. Пытаемся достать код разными путями (зависит от версии кодогенератора)
@@ -98,8 +105,10 @@ const AuthForm: React.FC = () => {
             console.log("Extracted Error Code:", errorCode);
 
             if (!errorCode && !e.body) {
+                setIsLoading(false);
                 setServerError("Ошибка сети или сервер недоступен");
             } else {
+                setIsLoading(false);
                 const friendlyMessage = ERROR_MESSAGES[errorCode] || `Ошибка сервера: ${errorCode || 'Unknown'}`;
                 setServerError(friendlyMessage);
             }
@@ -109,18 +118,10 @@ const AuthForm: React.FC = () => {
             }
 
             setTimeout(() => setServerError(null), 4000);
-        } finally {
-            setIsLoading(false);
-        }
+        } 
     }
 
-    if (isInitialLoading) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-[#222526]">
-                <LoadingPage /> 
-            </div>
-        );
-    }
+
 
     const resetForm = () => {
         setEmail("");
@@ -131,14 +132,22 @@ const AuthForm: React.FC = () => {
 
     return (
         <div data-theme="dark" className="flex items-center justify-center bg-[#1A1A1A]">
-        <div id="auth-custom-scope">
-        <div className="flex justify-center items-center h-screen auth-wrapper">
-            <div className="absolute inset-0 bg-cover bg-blue-500/20 blur-[100px] s-64 m-auto rounded-full" />
+            {isInitialLoading && (
+                    <div className="fixed inset-0 z-10000 flex justify-center items-center bg-[#1A1A1A] transition-opacity duration-500">
+                        <LoadingPage /> 
+                    </div>
+                )
+            }
             {isLoading && (
-                <div className="fixed inset-0 z-9999 flex justify-center items-center bg-black/50 backdrop-blur-[2px]">
+                <div className="fixed inset-0 z-10000 flex justify-center items-center bg-[#1A1A1A] transition-opacity duration-500">
                         <LoadingPage />
                 </div>
             )}
+        <div id="auth-custom-scope">
+        <div className="flex justify-center items-center h-screen auth-wrapper">
+            <div className="absolute inset-0 bg-cover bg-blue-500/20 blur-[100px] s-64 m-auto rounded-full" />
+
+
             {/* Основной контейнер с переключателем классов */}
             <div className={`auth-container ${isSignUp ? "right-panel-active" : ""}`}>
                 
