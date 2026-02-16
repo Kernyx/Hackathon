@@ -141,7 +141,7 @@ check_service() {
 }
 
 check_service "Frontend /health" "hackathon-frontend" \
-    "node -e \"require('http').get('http://localhost:8082/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))\""
+    "wget -qO- http://localhost:8082/health"
 
 check_service "Java /actuator/health" "hackathon-java" \
     "wget -qO- http://localhost:8080/actuator/health"
