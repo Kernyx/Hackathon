@@ -100,6 +100,12 @@ services:
     build:
       context: .
       dockerfile: services/ai-agent-service/Dockerfile
+      args:
+        DB_HOST: postgres
+        DB_USERNAME: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_NAME: ${DB_NAME}
+      network: hackathon-net
 
     container_name: hackathon-java
     profiles: ["java", "all"]
