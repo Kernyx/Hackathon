@@ -56,6 +56,26 @@ services:
         limits:
           memory: 512M
 
+  redis:
+    image: redis:7-alpine
+    container_name: hackathon-redis
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - hackathon-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: hackathon-pgadmin
@@ -183,25 +203,23 @@ services:
     container_name: hackathon-go
     profiles: ["go", "all"]
     restart: unless-stopped
-    read_only: true
     expose:
       - "8083"
     env_file: .env
     environment:
-      DB_HOST: postgres
-      RABBIT_HOST: rabbitmq
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
     networks:
       - hackathon-net
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
+      redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/api/v1/audit/feed"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -244,6 +262,7 @@ networks:
 volumes:
   rabbitmq-data:
   pgadmin-data:
+  redis-data:
   caddy-data:
   caddy-config:
 
