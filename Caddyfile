@@ -129,11 +129,11 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/agent* → AI Engine (будущий)
+    # /api/v1/aiAgent* → AI Engine (будущий)
     # ========================================
-    handle /api/v1/agent* {
+    handle /api/v1/aiAgent* {
         rate_limit {
-            zone agent {
+            zone aiAgent {
                 key {remote_host}
                 events 60
                 window 1m
@@ -180,7 +180,7 @@ api.besthackaton.duckdns.org {
             "available_endpoints": [
                 "/api/v1/auth",
                 "/api/v1/ml",
-                "/api/v1/agent (coming soon)",
+                "/api/v1/aiAgent (coming soon)",
                 "/api/v1/audit (coming soon)"
             ]
         }` 404 {

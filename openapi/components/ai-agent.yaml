@@ -70,11 +70,11 @@ components:
       type: string
       description: Тип личности агента
       enum:
-        - Альтруист (добрый)
-        - Макиавеллист (злой)
-        - Бунтарь (непредсказуемый)
-        - Стоик (хладнокровный)
-        - Индивидуальный (пользовательский)
+        - ALTRUIST
+        - MACHIAVELLIAN
+        - REBEL
+        - STOIC
+        - INDIVIDUAL
       x-enum-varnames:
         - ALTRUIST
         - MACHIAVELLIAN
