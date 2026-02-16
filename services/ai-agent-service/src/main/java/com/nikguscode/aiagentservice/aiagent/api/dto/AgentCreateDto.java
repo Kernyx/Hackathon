@@ -1,10 +1,14 @@
 package com.nikguscode.aiagentservice.aiagent.api.dto;
 
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgentTraits;
-import com.nikguscode.aiagentservice.api.model.PersonalityType;
+import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
 import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 
 public record AgentCreateDto(
+    @NotNull(message = "User id can't be null")
+    UUID userId,
+
     @NotNull(message = "Username is required field")
     String username,
 
@@ -24,4 +28,5 @@ public record AgentCreateDto(
     @NotNull(message = "Traits is required field")
     AiAgentTraits traits,
     String additionalInformation
-) {}
+) {
+}

@@ -1,9 +1,7 @@
 import { MOCK_AGENTS } from "@/lib/mockData" 
 import AgentGraph from "../AgentGraph"
 import { SideConsole } from "../SideConsole"
-import { useSidebar } from "@/components/ui/sidebar"
 export default function UsersPage() {
-  const { open } = useSidebar(); 
 
   const graphData = {
     nodes: MOCK_AGENTS,

@@ -1,7 +1,39 @@
+# Infrastructure data
 data/
 logs/
 backups/
+secrets/
+
+# VCS
 .git/
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Build artifacts
 node_modules/
 target/
+dist/
+.mvn/
 *.log
+
+# Documentation
+README.md
+*.md
+
+# Docker (avoid recursive context)
+docker-compose.yml
+.dockerignore
+
+# Frontend dev files (not needed in java/go builds)
+services/vite-project/
+services/frontend/node_modules/
+services/frontend/src/
+services/frontend/public/
+
+# Env example
+.env_example
