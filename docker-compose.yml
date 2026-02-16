@@ -100,8 +100,9 @@ services:
     build:
       context: .
       dockerfile: services/ai-agent-service/Dockerfile
+      network: host
       args:
-        DB_HOST: postgres
+        DB_HOST: 10.66.66.1
         DB_USERNAME: ${DB_USER}
         DB_PASSWORD: ${DB_PASSWORD}
         DB_NAME: ${DB_NAME}
