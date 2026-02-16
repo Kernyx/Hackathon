@@ -8,6 +8,7 @@ servers:
 paths:
   /ai-agents:
     post:
+      tags: [AI Agent Service]
       summary: Create AI agent
       requestBody:
         required: true
@@ -15,7 +16,6 @@ paths:
           application/json:
             schema:
               type: object
-              required:
               properties:
                 username:
                   type: string
@@ -40,6 +40,9 @@ paths:
                   type: string
                   examples:
                     - Любит яблоки
+      responses:
+        '201':
+          description: AI Agent created
 
 components:
   schemas:
