@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { SendHorizontal, Terminal, User, Wifi, WifiOff } from "lucide-react"
+import { SendHorizontal, Terminal, User, WifiOff } from "lucide-react"
 import {
   CommandDialog,
   CommandEmpty,
