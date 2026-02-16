@@ -2,13 +2,18 @@
 # ГЛОБАЛЬНЫЕ НАСТРОЙКИ
 # ============================================
 {
-    email admin@besthackaton.duckdns.org
+    email nickbred82@gmail.com
     
     log {
-        output file /var/log/caddy/access.log
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+        }
         format json
         level INFO
     }
+    
+    order rate_limit before basicauth
 }
 
 # ============================================
@@ -19,6 +24,16 @@ besthackaton.duckdns.org {
         output file /var/log/caddy/frontend.log {
             roll_size 100mb
             roll_keep 5
+        }
+        format json
+    }
+
+    # Rate limiting: 300 запросов в минуту
+    rate_limit {
+        zone frontend {
+            key {remote_host}
+            events 300
+            window 1m
         }
     }
 
@@ -41,94 +56,137 @@ besthackaton.duckdns.org {
 }
 
 # ============================================
-# JAVA BACKEND API
+# UNIFIED API GATEWAY
 # ============================================
 api.besthackaton.duckdns.org {
     log {
-        output file /var/log/caddy/java-api.log {
+        output file /var/log/caddy/api-gateway.log {
             roll_size 100mb
             roll_keep 5
         }
+        format json
     }
 
-    reverse_proxy java-backend:8080 {
-        transport http {
-            dial_timeout 5s
-            response_header_timeout 60s
+    # CORS для всех API
+    header {
+        -Server
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        Access-Control-Max-Age "3600"
+    }
+
+    # OPTIONS preflight
+    @options method OPTIONS
+    respond @options 204
+
+    # ========================================
+    # /api/v1/auth* → Java Backend
+    # ========================================
+    handle /api/v1/auth* {
+        rate_limit {
+            zone auth {
+                key {remote_host}
+                events 100
+                window 1m
+            }
+        }
+
+        reverse_proxy java-backend:8080 {
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 60s
+            }
+            
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # ========================================
+    # /api/v1/ml* → ML Service
+    # ========================================
+    handle /api/v1/ml* {
+        rate_limit {
+            zone ml {
+                key {remote_host}
+                events 30
+                window 1m
+            }
+        }
+
+        reverse_proxy ml-service:8083 {
+            transport http {
+                dial_timeout 10s
+                response_header_timeout 120s
+            }
+            
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # ========================================
+    # /api/v1/agent* → AI Engine (будущий)
+    # ========================================
+    handle /api/v1/agent* {
+        rate_limit {
+            zone agent {
+                key {remote_host}
+                events 60
+                window 1m
+            }
+        }
+
+        # Пока возвращаем заглушку
+        respond `{
+            "status": "service_not_ready",
+            "message": "AI Engine service is under development"
+        }` 503 {
+            Content-Type application/json
+        }
+    }
+
+    # ========================================
+    # /api/v1/audit* → Audit Service (будущий)
+    # ========================================
+    handle /api/v1/audit* {
+        rate_limit {
+            zone audit {
+                key {remote_host}
+                events 200
+                window 1m
+            }
+        }
+
+        # Пока возвращаем заглушку
+        respond `{
+            "status": "service_not_ready",
+            "message": "Audit Service is under development"
+        }` 503 {
+            Content-Type application/json
+        }
+    }
+
+    # ========================================
+    # Fallback для неизвестных путей
+    # ========================================
+    handle {
+        respond `{
+            "error": "Not Found",
+            "message": "API endpoint not found",
+            "available_endpoints": [
+                "/api/v1/auth",
+                "/api/v1/ml",
+                "/api/v1/agent (coming soon)",
+                "/api/v1/audit (coming soon)"
+            ]
+        }` 404 {
+            Content-Type application/json
         }
     }
 
     encode gzip zstd
-
-    header {
-        -Server
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-    }
-
-    @options method OPTIONS
-    respond @options 204
-}
-
-# ============================================
-# GO BACKEND API
-# ============================================
-go.besthackaton.duckdns.org {
-    log {
-        output file /var/log/caddy/go-api.log {
-            roll_size 100mb
-            roll_keep 5
-        }
-    }
-
-    reverse_proxy go-backend:8081 {
-        transport http {
-            dial_timeout 5s
-            response_header_timeout 60s
-        }
-    }
-
-    encode gzip zstd
-
-    header {
-        -Server
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-    }
-
-    @options method OPTIONS
-    respond @options 204
-}
-
-# ============================================
-# ML SERVICE API
-# ============================================
-ml.besthackaton.duckdns.org {
-    log {
-        output file /var/log/caddy/ml-api.log {
-            roll_size 100mb
-            roll_keep 5
-        }
-    }
-
-    reverse_proxy ml-service:8083 {
-        transport http {
-            dial_timeout 10s
-            response_header_timeout 120s
-        }
-    }
-
-    encode gzip zstd
-
-    header {
-        -Server
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-    }
-
-    @options method OPTIONS
-    respond @options 204
 }
