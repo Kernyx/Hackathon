@@ -7,6 +7,17 @@ LOG_FILE="$PROJECT_ROOT/logs/deploy.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 log() { echo "[$TIMESTAMP] $1" | tee -a "$LOG_FILE"; }
 
+# Добавление сервиса в список без дублей
+add_service() {
+    local svc="$1"
+    for s in "${CHANGED_SERVICES[@]}"; do
+        if [ "$s" = "$svc" ]; then
+            return
+        fi
+    done
+    CHANGED_SERVICES+=("$svc")
+}
+
 # Переход в корень проекта
 cd "$PROJECT_ROOT" || { echo "Ошибка: директория $PROJECT_ROOT не найдена"; exit 1; }
 
@@ -56,55 +67,32 @@ fi
 
 log "📝 Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
 
-# === СЛУЧАЙ 1: Изменения в инфраструктуре (.env или docker-compose.yml) ===
-if echo "$CHANGED" | grep -qE "^(docker-compose\.yml|\.env)$"; then
-    log "⚠️ Изменена инфраструктура — требуется полный перезапуск!"
-    log "🛑 Останавливаем все сервисы..."
-    docker compose --profile all down 2>&1 | tee -a "$LOG_FILE"
-    
-    log "🔄 Запускаем с новой конфигурацией..."
-    docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
-    
-    log "✅ Полный перезапуск завершён"
-    docker compose ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
-    [ -f "$PROJECT_ROOT/check-health.sh" ] && bash "$PROJECT_ROOT/check-health.sh" | tee -a "$LOG_FILE" || true
-    echo "----------------------------------------" >> "$LOG_FILE"
-    exit 0
-fi
+# === СЛУЧАЙ 3: Микросервисы / отдельные сервисы → точечная пересборка ===
+CHANGED_SERVICES=()
 
-# === СЛУЧАЙ 2: Caddyfile → reload Caddy ===
-if echo "$CHANGED" | grep -q "^Caddyfile$"; then
-    log "🔄 Перезагрузка Caddy..."
-    if ! docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile 2>&1 | tee -a "$LOG_FILE"; then
-        log "⚠️ Reload не удался — перезапуск"
-        docker compose restart caddy 2>&1 | tee -a "$LOG_FILE"
-    fi
-fi
-
-# === СЛУЧАЙ 3: Микросервисы → пересборка всего стека ===
-REBUILD_NEEDED=false
-
+# dir:service_name
 SERVICES_MAP=(
     "services/frontend:frontend"
-    "services/java-backend:java"
-    "services/go-backend:go"
-    "services/ml-service:ml"
+    "services/java-backend:java-backend"
+    "services/go-backend:go-backend"
+    "services/ml-service:ml-service"
+    "caddy-custom:caddy"
 )
 
 for mapping in "${SERVICES_MAP[@]}"; do
     dir="${mapping%%:*}"
-    profile="${mapping##*:}"
+    service="${mapping##*:}"
 
     if echo "$CHANGED" | grep -q "^${dir}/"; then
-        log "📝 Изменения обнаружены в ${profile}"
-        REBUILD_NEEDED=true
+        log "📝 Изменения обнаружены в сервисе ${service}"
+        add_service "$service"
     fi
 done
 
-# Если были изменения в микросервисах - пересобираем весь стек
-if [ "$REBUILD_NEEDED" = true ]; then
-    log "🔄 Пересборка всех сервисов..."
-    docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
+# Если были изменения в сервисах - пересобираем только их
+if [ "${#CHANGED_SERVICES[@]}" -gt 0 ]; then
+    log "🔄 Пересборка сервисов: ${CHANGED_SERVICES[*]}"
+    docker compose up -d --build "${CHANGED_SERVICES[@]}" 2>&1 | tee -a "$LOG_FILE"
 fi
 
 log "✅ Деплой завершён"
