@@ -10,7 +10,7 @@
 	</parent>
 
 	<groupId>com.nikguscode</groupId>
-	<artifactId>ai-agent-service</artifactId>
+	<artifactId>ai-aiAgent-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>AI Agent Service</name>
 	<description>Demo project for Spring Boot</description>
@@ -167,7 +167,7 @@
               <inputSchema>public</inputSchema>
             </database>
             <target>
-              <packageName>com.nikguscode.aiagent.jooq</packageName>
+              <packageName>com.nikguscode.aiagentservice.jooq</packageName>
               <directory>target/generated-sources/jooq</directory>
             </target>
           </generator>
@@ -227,7 +227,7 @@
             <configuration>
               <inputSpec>../../openapi/openapi_full.yaml</inputSpec>
               <generatorName>spring</generatorName>
-              <modelPackage>com.nikguscode.aiagent.api.model</modelPackage>
+              <modelPackage>com.nikguscode.aiagentservice.api.model</modelPackage>
               <output>${project.build.directory}/generated-sources/openapi</output>
 
               <generateApis>false</generateApis>
