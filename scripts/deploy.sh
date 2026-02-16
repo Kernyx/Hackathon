@@ -78,32 +78,6 @@ SERVICES_MAP=(
     "services/caddy:caddy"
 )
 
-# Если изменился docker-compose.yml или .env — пересобираем всё
-if echo "$CHANGED" | grep -qE '^(docker-compose\.yml|\.env)$'; then
-    log "📝 Изменения в конфигурации — полная пересборка"
-
-    # Сборка с автоматическим восстановлением при битом кэше BuildKit
-    BUILD_LOG=$(mktemp)
-    if ! docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE" "$BUILD_LOG"; then
-        if grep -q "snapshot.*does not exist\|failed to stat active key" "$BUILD_LOG"; then
-            log "⚠️ BuildKit cache повреждён — очистка и повторная сборка..."
-            docker builder prune -a -f 2>&1 | tee -a "$LOG_FILE"
-            docker compose --profile all up -d --build 2>&1 | tee -a "$LOG_FILE"
-        else
-            log "❌ Ошибка сборки"
-            rm -f "$BUILD_LOG"
-            exit 1
-        fi
-    fi
-    rm -f "$BUILD_LOG"
-
-    log "✅ Деплой завершён (полная пересборка)"
-    docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
-    [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
-    echo "----------------------------------------" >> "$LOG_FILE"
-    exit 0
-fi
-
 for mapping in "${SERVICES_MAP[@]}"; do
     dir="${mapping%%:*}"
     service="${mapping##*:}"
