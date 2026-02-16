@@ -1,7 +1,6 @@
 package com.nikguscode.aiagentservice.aiagent.domain.models;
 
-import com.nikguscode.aiagentservice.aiagent.application.AiAgentSnapshot;
-import com.nikguscode.aiagentservice.api.model.PersonalityType;
+import com.nikguscode.aiagentservice.aiagent.application.AiAgentCommand;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,6 +12,7 @@ import lombok.ToString;
 @ToString
 public class AiAgent {
   private final UUID id;
+  private final UUID userId;
   private final String username;
   private final String photoLink;
   private final Boolean isMale;
@@ -29,10 +29,19 @@ public class AiAgent {
   @ToString.Exclude
   private final String additionalInformation;
 
-  public static AiAgent createAgent(AiAgentSnapshot snapshot) {
+  public static AiAgent createAgent(AiAgentCommand snapshot) {
     return new AiAgent(
-        UUID.randomUUID(), snapshot.username(), snapshot.photoLink(), snapshot.isMale(),
-        snapshot.age(), snapshot.interests(), snapshot.personalityType(), snapshot.traits(),
-        snapshot.additionalInformation());
+        UUID.randomUUID(), snapshot.userId(), snapshot.username(), snapshot.photoLink(),
+        snapshot.isMale(), snapshot.age(), snapshot.interests(), snapshot.personalityType(),
+        snapshot.traits(), snapshot.additionalInformation());
+  }
+
+  public static AiAgent restore(
+      UUID id, UUID userId, String username, String photoLink, boolean isMale, Integer age,
+      String interests, PersonalityType personalityType, AiAgentTraits traits,
+      String additionalInformation) {
+    return new AiAgent(
+        id, userId, username, photoLink, isMale, age, interests, personalityType, traits,
+        additionalInformation);
   }
 }
