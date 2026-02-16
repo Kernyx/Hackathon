@@ -141,12 +141,11 @@ api.besthackaton.duckdns.org {
         }
 
         # Пока возвращаем заглушку
+        header Content-Type application/json
         respond `{
             "status": "service_not_ready",
             "message": "AI Engine service is under development"
-        }` 503 {
-            Content-Type application/json
-        }
+        }` 503
     }
 
     # ========================================
@@ -162,18 +161,18 @@ api.besthackaton.duckdns.org {
         }
 
         # Пока возвращаем заглушку
+        header Content-Type application/json
         respond `{
             "status": "service_not_ready",
             "message": "Audit Service is under development"
-        }` 503 {
-            Content-Type application/json
-        }
+        }` 503
     }
 
     # ========================================
     # Fallback для неизвестных путей
     # ========================================
     handle {
+        header Content-Type application/json
         respond `{
             "error": "Not Found",
             "message": "API endpoint not found",
@@ -183,9 +182,7 @@ api.besthackaton.duckdns.org {
                 "/api/v1/agent (coming soon)",
                 "/api/v1/audit (coming soon)"
             ]
-        }` 404 {
-            Content-Type application/json
-        }
+        }` 404
     }
 
     encode gzip zstd
