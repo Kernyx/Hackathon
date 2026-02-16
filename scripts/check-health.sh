@@ -188,8 +188,8 @@ check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
 echo ""
 
 # === 5. RESOURCES ===
-echo -e "${BLUE}📊 Resource Usage (Top 5)${NC}"
-docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" | head -n 6
+echo -e "${BLUE}📊 Resource Usage${NC}"
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"
 echo ""
 
 # === 6. BACKUPS ===
