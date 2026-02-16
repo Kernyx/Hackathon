@@ -5,7 +5,7 @@ import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
-public record AgentCreateDto(
+public record AgentUpdateDto(
     @NotNull(message = "User id can't be null")
     UUID userId,
 
@@ -28,5 +28,4 @@ public record AgentCreateDto(
     @NotNull(message = "Traits is required field")
     AiAgentTraits traits,
     String additionalInformation
-) {
-}
+) {}

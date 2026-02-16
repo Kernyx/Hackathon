@@ -4,6 +4,7 @@ import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgent;
 import com.nikguscode.aiagentservice.aiagent.domain.models.AiAgentTraits;
 import com.nikguscode.aiagentservice.aiagent.domain.models.PersonalityType;
 import com.nikguscode.aiagentservice.jooq.tables.records.AiAgentRecord;
+import java.util.Objects;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,45 @@ public abstract class AiAgentJooqMapper {
 
   public abstract AiAgentRecord toRecord(AiAgent aiAgent);
 
-  public abstract void updateRecordFromDomain(AiAgent source, @MappingTarget AiAgentRecord target);
+  public void updateRecordFromDomain(AiAgent domain, @MappingTarget AiAgentRecord record) {
+    if (!Objects.equals(record.getUserId(), domain.getUserId())) {
+      record.setUserId(domain.getUserId());
+    }
+
+    if (!Objects.equals(record.getUsername(), domain.getUsername())) {
+      record.setUsername(domain.getUsername());
+    }
+
+    if (!Objects.equals(record.getPhotoLink(), domain.getPhotoLink())) {
+      record.setPhotoLink(domain.getPhotoLink());
+    }
+
+    if (!Objects.equals(record.getIsMale(), domain.getIsMale())) {
+      record.setIsMale(domain.getIsMale());
+    }
+
+    if (!Objects.equals(record.getAge(), domain.getAge())) {
+      record.setAge(domain.getAge());
+    }
+
+    if (!Objects.equals(record.getInterests(), domain.getInterests())) {
+      record.setInterests(domain.getInterests());
+    }
+
+    if (!Objects.equals(record.getAdditionalInformation(), domain.getAdditionalInformation())) {
+      record.setAdditionalInformation(domain.getAdditionalInformation());
+    }
+
+    var newPersonality = map(domain.getPersonalityType());
+    if (!Objects.equals(record.getPersonalityType(), newPersonality)) {
+      record.setPersonalityType(newPersonality);
+    }
+
+    var newTraitsJson = map(domain.getTraits());
+    if (!Objects.equals(record.getTraits(), newTraitsJson)) {
+      record.setTraits(newTraitsJson);
+    }
+  }
 
   public AiAgent toDomain(AiAgentRecord record) {
     if (record == null) {
@@ -24,6 +63,7 @@ public abstract class AiAgentJooqMapper {
 
     return AiAgent.restore(
         record.getId(),
+        record.getUserId(),
         record.getUsername(),
         record.getPhotoLink(),
         Boolean.TRUE.equals(record.getIsMale()),
