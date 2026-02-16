@@ -24,7 +24,6 @@ dist/
 # Documentation
 README.md
 *.md
-openapi/
 
 # Docker (avoid recursive context)
 docker-compose.yml
