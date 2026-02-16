@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine  # легковесный образ
+    ports:
+      - "6379:6379"         # стандартный порт Redis
+    volumes:
+      - redis_data:/data    # чтобы данные не пропадали при перезапуке
+    command: redis-server --appendonly yes  # сохранять на диск
+
+  # PostgreSQL тоже добавим сразу (пригодится позже)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: audit
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:
