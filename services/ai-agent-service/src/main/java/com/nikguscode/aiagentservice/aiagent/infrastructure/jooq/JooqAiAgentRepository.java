@@ -11,9 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
-import org.jooq.JSONB;
 import org.springframework.stereotype.Service;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
@@ -27,7 +25,6 @@ public class JooqAiAgentRepository implements AiAgentRepository {
   public void save(AiAgent agent) {
     AiAgentRecord record = dsl.newRecord(AI_AGENT);
     aiAgentJooqMapper.updateRecordFromDomain(agent, record);
-//    dsl.attach(record);
     record.store();
   }
 
@@ -41,26 +38,19 @@ public class JooqAiAgentRepository implements AiAgentRepository {
 
   @Override
   public Optional<AiAgent> findById(UUID aiAgentId) {
-    Optional<AiAgentRecord> recordOpt = dsl
+    return dsl
         .selectFrom(AI_AGENT)
         .where(AI_AGENT.ID.eq(aiAgentId))
-        .fetchOptional();
-
-    if (recordOpt.isEmpty()) {
-      throw new RuntimeException("заглушка");
-    }
-
-    AiAgentRecord record = recordOpt.get();
-//    record.map();
-    return null;
+        .fetchOptional()
+        .map(aiAgentJooqMapper::toDomain);
   }
 
   @Override
   public List<AiAgent> findByUserId(UUID userId) {
-    return null;
+    return dsl
+        .selectFrom(AI_AGENT)
+        .where(AI_AGENT.USER_ID.eq(userId))
+        .fetch()
+        .map(aiAgentJooqMapper::toDomain);
   }
-
-//  private AiAgent toDomain() {
-//
-//  }
 }
