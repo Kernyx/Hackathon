@@ -89,6 +89,7 @@ log "📝 Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
 # Маппинг директорий → сервисов compose
 SERVICES_MAP=(
     "services/vite-project:frontend"
+    "services/auth-service:auth-service"
     "services/ai-agent-service:java-backend"
     "services/go-backend:go-backend"
     "services/ml-service:ml-service"
