@@ -2,6 +2,7 @@ package main
 
 import (
 	"audite-service/internal/api/openapi"
+	"audite-service/internal/auth"
 	"audite-service/internal/handlers"
 	"audite-service/internal/processor"
 	"audite-service/internal/storage"
@@ -24,6 +25,14 @@ func getEnv(key, defaultValue string) string {
 }
 
 func main() {
+	// RSA публичный ключ
+	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "/app/keys/public.pem")
+	publicKey, err := auth.LoadRSAPublicKey(publicKeyPath)
+	if err != nil {
+		log.Fatalf(" Failed to load RSA public key: %v", err)
+	}
+	log.Println(" RSA public key loaded")
+
 	// redis
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
@@ -80,14 +89,31 @@ func main() {
 	feedHandler := handlers.NewFeedHandler(redisStore, pgStore)
 	wsHandler := handlers.NewWebSocketHandler(hub)
 
+	jwtMiddleware := auth.JWTMiddleware(publicKey)
+	wsJwtMiddleware := auth.WSJWTMiddleware(publicKey)
+
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(200, map[string]interface{}{
+			"status":     "ok",
+			"ws_clients": hub.ClientCount(),
+		})
+	})
+
 	api := e.Group("/api/v1/audit")
+	api.Use(jwtMiddleware)
+
 	api.POST("/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
 	api.GET("/history", feedHandler.GetHistory)
 	api.GET("/agents/:agent_id/events", feedHandler.GetAgentEvents)
 	api.GET("/agents/:agent_id/stats", feedHandler.GetAgentStats)
-	api.GET("/ws", wsHandler.ServeWS)
-	api.GET("/ws/stats", wsHandler.GetStats)
+
+	// websocket
+	ws := e.Group("/api/v1/audit")
+	ws.Use(wsJwtMiddleware)
+
+	ws.GET("/ws", wsHandler.ServeWS)
+	ws.GET("/ws/stats", wsHandler.GetStats)
 
 	go func() {
 		if err := e.Start(":8083"); err != nil {

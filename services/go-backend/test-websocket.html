@@ -62,14 +62,39 @@
             background: #ccc;
             cursor: not-allowed;
         }
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌐 WebSocket Event Stream</h1>
+        <h1>🌐 WebSocket Event Stream (JWT Protected)</h1>
         
+        <!-- ✅ Добавляем поле для токена -->
+        <div class="input-group">
+            <label for="token">JWT Token:</label>
+            <input type="text" id="token" placeholder="Вставь токен сюда...">
+            <small style="color: #666;">
+                Получить токен: <code>curl -X POST http://localhost:8083/dev/generate-token -H "Content-Type: application/json" -d '{"user_id":"test_user"}'</code>
+            </small>
+        </div>
+
         <div id="status" class="status disconnected">
-            Disconnected
+            ❌ Disconnected
         </div>
 
         <div style="margin-bottom: 20px;">
@@ -89,16 +114,17 @@
         const connectBtn = document.getElementById('connect');
         const disconnectBtn = document.getElementById('disconnect');
         const clearBtn = document.getElementById('clear');
+        const tokenInput = document.getElementById('token');
 
         function updateStatus(connected) {
             if (connected) {
                 statusDiv.className = 'status connected';
-                statusDiv.textContent = 'Connected';
+                statusDiv.textContent = '✅ Connected';
                 connectBtn.disabled = true;
                 disconnectBtn.disabled = false;
             } else {
                 statusDiv.className = 'status disconnected';
-                statusDiv.textContent = 'Disconnected';
+                statusDiv.textContent = '❌ Disconnected';
                 connectBtn.disabled = false;
                 disconnectBtn.disabled = true;
             }
@@ -120,7 +146,16 @@
         }
 
         function connect() {
-            ws = new WebSocket('ws://localhost:8083/api/v1/audit/ws');
+            const token = tokenInput.value.trim();
+            
+            if (!token) {
+                alert('❌ Введи JWT токен!');
+                return;
+            }
+
+            // ✅ Добавляем токен в query параметр
+            const wsUrl = `ws://localhost:8083/api/v1/audit/ws?token=${encodeURIComponent(token)}`;
+            ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 console.log('WebSocket connected');
@@ -135,7 +170,7 @@
 
             ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                addEvent({ type: 'error', message: 'Connection error' });
+                addEvent({ type: 'error', message: 'Connection error (возможно невалидный токен)' });
             };
 
             ws.onclose = () => {
@@ -158,8 +193,16 @@
             eventsDiv.innerHTML = '';
         });
 
-        // Auto-connect on load
-        connect();
+        // Сохраняем токен в localStorage
+        tokenInput.addEventListener('input', () => {
+            localStorage.setItem('jwt_token', tokenInput.value);
+        });
+
+        // Загружаем токен из localStorage при старте
+        const savedToken = localStorage.getItem('jwt_token');
+        if (savedToken) {
+            tokenInput.value = savedToken;
+        }
     </script>
 </body>
 </html>
