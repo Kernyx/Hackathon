@@ -4,11 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      force_deploy:
-        description: "Полная пересборка всех сервисов"
-        type: boolean
-        default: false
 
 concurrency:
   group: deploy
@@ -18,7 +13,7 @@ jobs:
   deploy:
     name: "🚀 Deploy"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -28,7 +23,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: 22
           script_stop: true
-          command_timeout: 15m
+          command_timeout: 5m
           script: |
             set -euo pipefail
             cd /opt/hackathon
@@ -38,8 +33,6 @@ jobs:
             git reset --hard origin/main
 
             echo "── Deploy ──"
-            FORCE_DEPLOY=${{ github.event.inputs.force_deploy == 'true' && '1' || '0' }}
-            export FORCE_DEPLOY
             bash scripts/deploy.sh
 
       - name: Health check
