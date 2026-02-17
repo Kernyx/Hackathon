@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { getStoredAgents } from "@/lib/storage"
+import { useAgentStream } from "@/lib/agent-stream/AgentStreamContext"
 
 interface LogEvent {
   id: string;
@@ -87,22 +87,21 @@ const shouldIgnoreAsDuplicate = (fingerprint: string, windowMs = 5000) => {
 };
 
 export function SideConsole() {
+  const {
+    isConnected,
+    agents,
+    agentsById,
+    rawEvents,
+    selectedAgentId,
+    setSelectedAgentId,
+    sendJson,
+  } = useAgentStream();
   const [open, setOpen] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState<any>(null)
-  const [agents, setAgents] = useState<any[]>([])
-  
-  const [isConnected, setIsConnected] = useState(false)
   const [events, setEvents] = useState<LogEvent[]>([])
   const [inputValue, setInputValue] = useState("")
-  
-  const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isConnectingRef = useRef(false);
 
-  // Загружаем агентов из localStorage
-  useEffect(() => {
-    setAgents(getStoredAgents());
-  }, []);
+  const selectedAgent = selectedAgentId ? agentsById.get(selectedAgentId) : null;
 
   // Функция для добавления системных логов (ошибки, коннекты)
   const addSystemLog = (message: string, type: 'system' | 'error' = 'system') => {
@@ -126,81 +125,47 @@ export function SideConsole() {
     scrollToBottom();
   }, [events]);
 
+  // Mirror stream events into console UI (deduped)
   useEffect(() => {
-    // Предотвращаем множественные подключения
-    if (wsRef.current || isConnectingRef.current) return;
-    
-    isConnectingRef.current = true;
-    const ws = new WebSocket('ws://localhost:8083/api/v1/audit/ws');
-    wsRef.current = ws;
+    if (rawEvents.length === 0) return;
+    const last = rawEvents[rawEvents.length - 1];
+    const fingerprint = `msg:${fingerprintForEventData(last.payload)}`;
+    if (shouldIgnoreAsDuplicate(fingerprint, 5000)) return;
 
-    ws.onopen = () => {
-      console.log('WebSocket Connected');
-      setIsConnected(true);
-      isConnectingRef.current = false;
-      addSystemLog("Connected to audit server");
-    };
+    setEvents((prev) => [
+      ...prev,
+      {
+        id: last.id,
+        timestamp: last.timestamp,
+        data: last.payload,
+        type: "info",
+      },
+    ]);
+  }, [rawEvents]);
 
-    ws.onmessage = (event) => {
-      try {
-        let displayData;
-        try {
-          displayData = JSON.parse(event.data);
-        } catch {
-          displayData = event.data;
-        }
-
-        const fingerprint = `msg:${fingerprintForEventData(displayData)}`;
-        if (shouldIgnoreAsDuplicate(fingerprint, 5000)) return;
-
-        setEvents(prev => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toLocaleTimeString(),
-            data: displayData,
-            type: 'info'
-          }
-        ]);
-      } catch (e) {
-        console.error("Message error", e);
-      }
-    };
-
-    ws.onerror = () => {
-      addSystemLog("Connection error occurred", "error");
-      setIsConnected(false);
-      isConnectingRef.current = false;
-    };
-
-    ws.onclose = () => {
-      addSystemLog("Disconnected from server", "system");
-      setIsConnected(false);
-      wsRef.current = null;
-      isConnectingRef.current = false;
-    };
-
-    return () => {
-      isConnectingRef.current = false;
-      if (wsRef.current) {
-        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
-          wsRef.current.close();
-        }
-        wsRef.current = null;
-      }
-    };
-  }, []);
+  // connection status logs
+  const prevConnRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (prevConnRef.current === null) {
+      prevConnRef.current = isConnected;
+      return;
+    }
+    if (prevConnRef.current !== isConnected) {
+      addSystemLog(isConnected ? "Connected to audit server" : "Disconnected from server", "system");
+      prevConnRef.current = isConnected;
+    }
+  }, [isConnected]);
 
   const handleSendMessage = () => {
-    if (!inputValue.trim() || !wsRef.current || !isConnected) return;
+    if (!inputValue.trim() || !isConnected) return;
 
     const payload = {
       text: inputValue,
-      target: selectedAgent ? selectedAgent.id : 'global', 
+      target: selectedAgent ? selectedAgent.id : 'global',
       timestamp: new Date().toISOString()
     };
 
-    wsRef.current.send(JSON.stringify(payload));
+    sendJson(payload);
     setInputValue("");
   };
 
@@ -219,7 +184,7 @@ export function SideConsole() {
           <div className="flex items-center gap-2">
             <Terminal className="h-4 w-4 text-primary" />
             <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-              {selectedAgent ? `Logs: ${selectedAgent.name}` : "Global Logs"}
+              {selectedAgent ? `Logs: ${selectedAgent.username}` : "Global Logs"}
             </span>
             <div className={`h-2 w-2 rounded-full transition-colors ${isConnected ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-500'}`} />
           </div>
@@ -231,7 +196,7 @@ export function SideConsole() {
             className="h-7 px-2 text-[11px] bg-background/50 border-muted gap-1.5"
           >
             <User className="h-3.5 w-3.5" />
-            {selectedAgent ? selectedAgent.name : "All Agents"}
+            {selectedAgent ? selectedAgent.username : "All Agents"}
           </Button>
         </div>
 
@@ -267,7 +232,7 @@ export function SideConsole() {
         {/* 3. ЧАТ */}
         <div className="p-3 bg-muted/20 shrink-0 h-auto border-t border-border/50">
           <div className="mb-2 text-[11px] font-medium text-muted-foreground px-1 flex justify-between items-center">
-            <span className="uppercase tracking-wider">{selectedAgent ? `Private: ${selectedAgent.name}` : "Global Broadcast"}</span>
+            <span className="uppercase tracking-wider">{selectedAgent ? `Private: ${selectedAgent.username}` : "Global Broadcast"}</span>
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${isConnected ? "text-green-500" : "text-red-500"}`}>
                 {isConnected ? "ONLINE" : "OFFLINE"}
             </span>
@@ -300,17 +265,21 @@ export function SideConsole() {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="General">
-            <CommandItem onSelect={() => { setSelectedAgent(null); setOpen(false); }} className="cursor-pointer font-bold text-primary">
+            <CommandItem onSelect={() => { setSelectedAgentId(null); setOpen(false); }} className="cursor-pointer font-bold text-primary">
               <User className="mr-2 h-4 w-4" />
               <span>All Agents (Global Chat)</span>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Individual Agents">
             {agents.map((agent) => (
-              <CommandItem key={agent.id} onSelect={() => { setSelectedAgent(agent); setOpen(false); }} className="cursor-pointer">
+              <CommandItem
+                key={agent.id}
+                onSelect={() => { setSelectedAgentId(agent.id); setOpen(false); }}
+                className="cursor-pointer"
+              >
                 <User className="mr-2 h-4 w-4 opacity-50" />
-                <span>{agent.name}</span>
-                <span className="ml-auto text-[10px] opacity-40">{agent.role}</span>
+                <span>{agent.username}</span>
+                <span className="ml-auto text-[10px] opacity-40">{agent.mood ?? ""}</span>
               </CommandItem>
             ))}
           </CommandGroup>
