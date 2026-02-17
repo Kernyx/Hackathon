@@ -25,19 +25,13 @@ func getEnv(key, defaultValue string) string {
 }
 
 func main() {
-	// Загружаем JWT секретный ключ
-
-	/*
-		secretKeyPath := getEnv("JWT_SECRET_PATH", "jwt_secret.key")
-		secretKey, err := auth.LoadSecretKey(secretKeyPath)
-		if err != nil {
-			log.Fatalf("Failed to load JWT secret key: %v", err)
-		}
-		log.Println("JWT secret key loaded")
-	*/
-	secretKey := []byte("a-string-secret-at-least-256-bits-long")
-	jwtMiddleware := auth.JWTMiddleware(secretKey)
-	wsJwtMiddleware := auth.WSJWTMiddleware(secretKey)
+	// RSA публичный ключ
+	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "secrets/public.pem")
+	publicKey, err := auth.LoadRSAPublicKey(publicKeyPath)
+	if err != nil {
+		log.Fatalf(" Failed to load RSA public key: %v", err)
+	}
+	log.Println(" RSA public key loaded")
 
 	// redis
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
@@ -94,6 +88,9 @@ func main() {
 	eventHandler := handlers.NewEventHandler(eventChan)
 	feedHandler := handlers.NewFeedHandler(redisStore, pgStore)
 	wsHandler := handlers.NewWebSocketHandler(hub)
+
+	jwtMiddleware := auth.JWTMiddleware(publicKey)
+	wsJwtMiddleware := auth.WSJWTMiddleware(publicKey)
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]interface{}{

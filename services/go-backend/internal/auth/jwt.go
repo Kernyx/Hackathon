@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +13,8 @@ import (
 )
 
 type Claims struct {
-	Sub string `json:"sub"`
+	Sub   string `json:"sub"`
+	Scope string `json:"scope"`
 	jwt.RegisteredClaims
 }
 
@@ -22,39 +26,56 @@ var (
 	ErrInvalidAuthFormat = errors.New("invalid authorization format")
 )
 
-// Загружает HS256 секретный ключ из файла
-func LoadSecretKey(secretPath string) ([]byte, error) {
-	if !filepath.IsAbs(secretPath) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get working directory: %w", err)
+// Загружает ключ из файла ИЛИ переменной окружения
+func LoadRSAPublicKey(publicKeyPath string) (*rsa.PublicKey, error) {
+	var keyData []byte
+	var err error
+
+	if publicKeyPEM := os.Getenv("JWT_PUBLIC_KEY"); publicKeyPEM != "" {
+		keyData = []byte(publicKeyPEM)
+	} else {
+		if !filepath.IsAbs(publicKeyPath) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get working directory: %w", err)
+			}
+			publicKeyPath = filepath.Join(cwd, publicKeyPath)
 		}
-		secretPath = filepath.Join(cwd, secretPath)
+
+		keyData, err = os.ReadFile(publicKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read public key from %s: %w", publicKeyPath, err)
+		}
 	}
 
-	key, err := os.ReadFile(secretPath)
+	block, _ := pem.Decode(keyData)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read secret key: %w", err)
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
 	}
 
-	key = []byte(string(key))
-	if len(key) == 0 {
-		return nil, errors.New("secret key is empty")
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("not an RSA public key")
 	}
 
-	return key, nil
+	return rsaPub, nil
 }
 
-// Валидирует JWT токен с HS256
-func ValidateToken(tokenString string, secretKey []byte) (*Claims, error) {
+// Валидирует JWT токен с RS256
+func ValidateToken(tokenString string, publicKey *rsa.PublicKey) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&Claims{},
 		func(token *jwt.Token) (interface{}, error) {
-			if token.Method != jwt.SigningMethodHS256 {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("%w: %v", ErrUnexpectedMethod, token.Header["alg"])
 			}
-			return secretKey, nil
+			return publicKey, nil
 		},
 	)
 
