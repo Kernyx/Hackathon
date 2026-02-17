@@ -12,18 +12,34 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Модель события для PostgreSQL
 type Event struct {
-	ID                  uint            `gorm:"primaryKey"`
-	EventType           string          `gorm:"size:255;index"`
-	SourceAgentID       *string         `gorm:"type:uuid;index"`
-	SourceAgentUsername *string         `gorm:"size:255"`
-	Timestamp           *time.Time      `gorm:"index:idx_timestamp,sort:desc"`
-	Message             *string         `gorm:"type:text"`
-	Mood                *string         `gorm:"size:50"`
-	TargetAgents        json.RawMessage `gorm:"type:jsonb"`
-	Data                json.RawMessage `gorm:"type:jsonb"`
-	ProcessedAt         time.Time       `gorm:"not null;default:now()"`
-	CreatedAt           time.Time       `gorm:"not null;default:now();index:idx_created_at,sort:desc"`
+	ID        uint      `gorm:"primaryKey"`
+	CreatedAt time.Time `gorm:"not null;default:now();index:idx_created_at,sort:desc"`
+
+	EventType string     `gorm:"size:255;index"`
+	Timestamp *time.Time `gorm:"index:idx_timestamp,sort:desc"`
+
+	SourceAgentID   string          `gorm:"size:255;index"`
+	SourceAgentName string          `gorm:"size:255"`
+	SourceAgentMood json.RawMessage `gorm:"type:jsonb"`
+
+	SourceAgentRelationships json.RawMessage `gorm:"type:jsonb"`
+	SourceAgentActivity      json.RawMessage `gorm:"type:jsonb"`
+	SourceAgentPlan          json.RawMessage `gorm:"type:jsonb"`
+
+	TargetAgents json.RawMessage `gorm:"type:jsonb"`
+
+	Message       *string `gorm:"type:text"`
+	Tick          *int    `gorm:"index"`
+	IsInitiative  *bool
+	ActionResult  *string         `gorm:"type:text"`
+	EventDataFull json.RawMessage `gorm:"type:jsonb;column:event_data"`
+
+	SimulationContext json.RawMessage `gorm:"type:jsonb"`
+
+	ProcessedAt time.Time `gorm:"not null;default:now()"`
+	ProcessedTs int64
 }
 
 func (Event) TableName() string {
@@ -77,7 +93,7 @@ func (p *PostgresStore) RunMigrations() error {
 	if err != nil {
 		return fmt.Errorf("failed to migrate: %w", err)
 	}
-	log.Println("Database migrations completed")
+	log.Println("database migrations completed")
 	return nil
 }
 
@@ -95,71 +111,80 @@ func (p *PostgresStore) BatchSaveEvents(events []*openapi.Event) error {
 		dbEvents = append(dbEvents, mapOpenAPIToEvent(e))
 	}
 
-	return p.db.CreateInBatches(dbEvents, 100).Error
+	result := p.db.CreateInBatches(dbEvents, 100)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	log.Printf("batch saved %d events to PostgreSQL", result.RowsAffected)
+	return nil
 }
 
-func (p *PostgresStore) GetRecentEvents(limit int) ([]map[string]interface{}, error) {
-	var events []Event
-	result := p.db.Order("created_at DESC").Limit(limit).Find(&events)
+// Получить последние события
+func (p *PostgresStore) GetRecentEvents(limit int) ([]*openapi.Event, error) {
+	var dbEvents []Event
+	result := p.db.Order("created_at DESC").Limit(limit).Find(&dbEvents)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	eventMaps := make([]map[string]interface{}, 0, len(events))
-	for _, event := range events {
-		eventMap := map[string]interface{}{
-			"event_type":   event.EventType,
-			"processed_at": event.ProcessedAt.Format(time.RFC3339),
-			"created_at":   event.CreatedAt.Format(time.RFC3339),
-		}
-
-		if event.SourceAgentID != nil {
-			eventMap["source_agent_id"] = *event.SourceAgentID
-		}
-		if event.SourceAgentUsername != nil {
-			eventMap["source_agent_username"] = *event.SourceAgentUsername
-		}
-		if event.Timestamp != nil {
-			eventMap["timestamp"] = event.Timestamp.Format(time.RFC3339)
-		}
-		if event.Message != nil {
-			eventMap["message"] = *event.Message
-		}
-		if event.Mood != nil {
-			eventMap["mood"] = *event.Mood
-		}
-		if len(event.TargetAgents) > 0 {
-			var targets interface{}
-			json.Unmarshal(event.TargetAgents, &targets)
-			eventMap["target_agents"] = targets
-		}
-		if len(event.Data) > 0 {
-			var data interface{}
-			json.Unmarshal(event.Data, &data)
-			eventMap["data"] = data
-		}
-
-		eventMaps = append(eventMaps, eventMap)
+	events := make([]*openapi.Event, 0, len(dbEvents))
+	for _, dbEvent := range dbEvents {
+		events = append(events, mapEventToOpenAPI(&dbEvent))
 	}
 
-	return eventMaps, nil
+	return events, nil
 }
 
+// Получить историю с пагинацией
+func (p *PostgresStore) GetHistoryWithPagination(limit, offset int) ([]*openapi.Event, int64, error) {
+	var dbEvents []Event
+	var total int64
+
+	p.db.Model(&Event{}).Count(&total)
+
+	result := p.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&dbEvents)
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	events := make([]*openapi.Event, 0, len(dbEvents))
+	for _, dbEvent := range dbEvents {
+		events = append(events, mapEventToOpenAPI(&dbEvent))
+	}
+
+	return events, total, nil
+}
+
+// Поиск по типу события
+func (p *PostgresStore) GetEventsByType(eventType string, limit int) ([]*openapi.Event, error) {
+	var dbEvents []Event
+	result := p.db.Where("event_type = ?", eventType).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&dbEvents)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	events := make([]*openapi.Event, 0, len(dbEvents))
+	for _, dbEvent := range dbEvents {
+		events = append(events, mapEventToOpenAPI(&dbEvent))
+	}
+
+	return events, nil
+}
+
+// Маппинг из OpenAPI в БД модель
 func mapOpenAPIToEvent(src *openapi.Event) *Event {
 	e := &Event{
 		ProcessedAt: time.Now().UTC(),
+		ProcessedTs: time.Now().Unix(),
 	}
 
 	if src.EventType != nil {
 		e.EventType = *src.EventType
-	}
-
-	if src.SourceAgent != nil {
-		id := src.SourceAgent.Id.String()
-		username := src.SourceAgent.Username
-
-		e.SourceAgentID = &id
-		e.SourceAgentUsername = &username
 	}
 
 	if src.Timestamp != nil {
@@ -167,30 +192,144 @@ func mapOpenAPIToEvent(src *openapi.Event) *Event {
 		e.Timestamp = &t
 	}
 
-	if src.Data != nil {
-
-		if src.Data.Message != nil {
-			e.Message = src.Data.Message
+	if src.SourceAgent != nil {
+		if src.SourceAgent.AgentId != nil {
+			e.SourceAgentID = *src.SourceAgent.AgentId
+		}
+		if src.SourceAgent.Name != nil {
+			e.SourceAgentName = *src.SourceAgent.Name
 		}
 
-		if src.Data.Mood != nil {
-			e.Mood = src.Data.Mood
+		if src.SourceAgent.Mood != nil {
+			if moodJSON, err := json.Marshal(src.SourceAgent.Mood); err == nil {
+				e.SourceAgentMood = moodJSON
+			}
 		}
 
-		if b, err := json.Marshal(src.Data); err == nil {
-			e.Data = b
+		if src.SourceAgent.Relationships != nil {
+			if relJSON, err := json.Marshal(src.SourceAgent.Relationships); err == nil {
+				e.SourceAgentRelationships = relJSON
+			}
+		}
+
+		if src.SourceAgent.Activity != nil {
+			if actJSON, err := json.Marshal(src.SourceAgent.Activity); err == nil {
+				e.SourceAgentActivity = actJSON
+			}
+		}
+
+		if src.SourceAgent.Plan != nil {
+			if planJSON, err := json.Marshal(src.SourceAgent.Plan); err == nil {
+				e.SourceAgentPlan = planJSON
+			}
 		}
 	}
 
 	if src.TargetAgents != nil {
-		if b, err := json.Marshal(src.TargetAgents); err == nil {
-			e.TargetAgents = b
+		if targetJSON, err := json.Marshal(src.TargetAgents); err == nil {
+			e.TargetAgents = targetJSON
+		}
+	}
+
+	if src.Data != nil {
+		if src.Data.Message != nil {
+			e.Message = src.Data.Message
+		}
+		if src.Data.Tick != nil {
+			e.Tick = src.Data.Tick
+		}
+		if src.Data.IsInitiative != nil {
+			e.IsInitiative = src.Data.IsInitiative
+		}
+		if src.Data.ActionResult != nil {
+			e.ActionResult = src.Data.ActionResult
+		}
+
+		if dataJSON, err := json.Marshal(src.Data); err == nil {
+			e.EventDataFull = dataJSON
+		}
+	}
+
+	if src.SimulationContext != nil {
+		if ctxJSON, err := json.Marshal(src.SimulationContext); err == nil {
+			e.SimulationContext = ctxJSON
 		}
 	}
 
 	if src.ProcessedAt != nil {
 		e.ProcessedAt = src.ProcessedAt.UTC()
 	}
+	if src.ProcessedTs != nil {
+		e.ProcessedTs = *src.ProcessedTs
+	}
 
 	return e
+}
+
+// Маппинг из БД модели в OpenAPI
+func mapEventToOpenAPI(e *Event) *openapi.Event {
+	event := &openapi.Event{
+		EventType:   &e.EventType,
+		Timestamp:   e.Timestamp,
+		ProcessedAt: &e.ProcessedAt,
+		ProcessedTs: &e.ProcessedTs,
+	}
+
+	sourceAgent := &openapi.SourceAgent{
+		AgentId: &e.SourceAgentID,
+		Name:    &e.SourceAgentName,
+	}
+
+	if len(e.SourceAgentMood) > 0 {
+		var mood openapi.Mood
+		if json.Unmarshal(e.SourceAgentMood, &mood) == nil {
+			sourceAgent.Mood = &mood
+		}
+	}
+
+	if len(e.SourceAgentRelationships) > 0 {
+		var relationships map[string]openapi.Relationship
+		if json.Unmarshal(e.SourceAgentRelationships, &relationships) == nil {
+			sourceAgent.Relationships = &relationships
+		}
+	}
+
+	if len(e.SourceAgentActivity) > 0 {
+		var activity openapi.Activity
+		if json.Unmarshal(e.SourceAgentActivity, &activity) == nil {
+			sourceAgent.Activity = &activity
+		}
+	}
+
+	if len(e.SourceAgentPlan) > 0 {
+		var plan openapi.Plan
+		if json.Unmarshal(e.SourceAgentPlan, &plan) == nil {
+			sourceAgent.Plan = &plan
+		}
+	}
+
+	event.SourceAgent = sourceAgent
+
+	if len(e.TargetAgents) > 0 {
+		var targets []openapi.TargetAgent
+		if json.Unmarshal(e.TargetAgents, &targets) == nil {
+			event.TargetAgents = &targets
+		}
+	}
+
+	if len(e.EventDataFull) > 0 {
+		var data openapi.EventData
+		if json.Unmarshal(e.EventDataFull, &data) == nil {
+			event.Data = &data
+		}
+	}
+
+	if len(e.SimulationContext) > 0 {
+		var ctx openapi.SimulationContext
+		if json.Unmarshal(e.SimulationContext, &ctx) == nil {
+			event.SimulationContext = &ctx
+		}
+	}
+
+	return event
 }

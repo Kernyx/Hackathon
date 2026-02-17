@@ -17,28 +17,29 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// AiAgent defines model for AiAgent.
-type AiAgent struct {
-	// Id Уникальный идентификатор агента
-	Id openapi_types.UUID `json:"id"`
+// Activity defines model for Activity.
+type Activity struct {
+	// MessagesSpoken Количество сообщений
+	MessagesSpoken *int `json:"messages_spoken,omitempty"`
 
-	// Username Имя агента
-	Username string `json:"username"`
+	// Talkativeness Уровень разговорчивости (0.0-1.0)
+	Talkativeness *float32 `json:"talkativeness,omitempty"`
+}
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	// Details Детали ошибки
+	Details *string `json:"details,omitempty"`
+
+	// Error Описание ошибки
+	Error string `json:"error"`
 }
 
 // Event Событие из ленты
 type Event struct {
-	// Data Данные события
-	Data *struct {
-		// Message Текст сообщения
-		Message *string `json:"message,omitempty"`
-
-		// Mood Настроение агента
-		Mood *string `json:"mood,omitempty"`
-	} `json:"data,omitempty"`
+	Data *EventData `json:"data,omitempty"`
 
 	// EventType Тип события
 	EventType *string `json:"event_type,omitempty"`
@@ -47,33 +48,136 @@ type Event struct {
 	ProcessedAt *time.Time `json:"processed_at,omitempty"`
 
 	// ProcessedTs Unix timestamp обработки
-	ProcessedTs *int64   `json:"processed_ts,omitempty"`
-	SourceAgent *AiAgent `json:"source_agent,omitempty"`
-
-	// TargetAgents ИИ агенты - получатели
-	TargetAgents *[]AiAgent `json:"target_agents,omitempty"`
+	ProcessedTs       *int64             `json:"processed_ts,omitempty"`
+	SimulationContext *SimulationContext `json:"simulation_context,omitempty"`
+	SourceAgent       *SourceAgent       `json:"source_agent,omitempty"`
+	TargetAgents      *[]TargetAgent     `json:"target_agents,omitempty"`
 
 	// Timestamp Время события
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
+// EventAcceptedResponse defines model for EventAcceptedResponse.
+type EventAcceptedResponse struct {
+	Status    *string    `json:"status,omitempty"`
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Type      *string    `json:"type,omitempty"`
+}
+
+// EventData defines model for EventData.
+type EventData struct {
+	// ActionResult Результат действия
+	ActionResult *string `json:"action_result,omitempty"`
+
+	// IsInitiative Инициатор ли агент
+	IsInitiative *bool `json:"is_initiative,omitempty"`
+
+	// Message Текст сообщения
+	Message *string `json:"message,omitempty"`
+
+	// Sentiments Изменения в отношениях
+	Sentiments *map[string]struct {
+		Delta  *float32 `json:"delta,omitempty"`
+		Reason *string  `json:"reason,omitempty"`
+	} `json:"sentiments,omitempty"`
+
+	// Tick Номер тика симуляции
+	Tick *int `json:"tick,omitempty"`
+}
+
+// EventsFeedResponse defines model for EventsFeedResponse.
+type EventsFeedResponse struct {
+	// Count Количество возвращенных событий
+	Count  *int     `json:"count,omitempty"`
+	Events *[]Event `json:"events,omitempty"`
+
+	// Limit Запрошенный лимит
+	Limit *int `json:"limit,omitempty"`
+
+	// Source Источник данных
+	Source *string `json:"source,omitempty"`
+}
+
+// HistoryResponse defines model for HistoryResponse.
+type HistoryResponse struct {
+	Count  *int     `json:"count,omitempty"`
+	Events *[]Event `json:"events,omitempty"`
+	Limit  *int     `json:"limit,omitempty"`
+	Offset *int     `json:"offset,omitempty"`
+	Source *string  `json:"source,omitempty"`
+
+	// Total Общее количество событий в БД
+	Total *int `json:"total,omitempty"`
+}
+
+// Mood defines model for Mood.
+type Mood struct {
+	Anger           *float32 `json:"anger,omitempty"`
+	DominantEmotion *string  `json:"dominant_emotion,omitempty"`
+	Energy          *float32 `json:"energy,omitempty"`
+	Fear            *float32 `json:"fear,omitempty"`
+	Happiness       *float32 `json:"happiness,omitempty"`
+	Stress          *float32 `json:"stress,omitempty"`
+}
+
+// Plan defines model for Plan.
+type Plan struct {
+	// CurrentStep Текущий шаг плана
+	CurrentStep *int `json:"current_step,omitempty"`
+
+	// Goal Текущая цель
+	Goal *string `json:"goal,omitempty"`
+}
+
+// Relationship defines model for Relationship.
+type Relationship struct {
+	// DisplayName Имя агента
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Value Значение отношения (-1.0 до 1.0)
+	Value *float32 `json:"value,omitempty"`
+}
+
+// SimulationContext defines model for SimulationContext.
+type SimulationContext struct {
+	CurrentTopic *string `json:"current_topic,omitempty"`
+	Phase        *string `json:"phase,omitempty"`
+	ScenarioName *string `json:"scenario_name,omitempty"`
+}
+
+// SourceAgent defines model for SourceAgent.
+type SourceAgent struct {
+	Activity      *Activity                `json:"activity,omitempty"`
+	AgentId       *string                  `json:"agent_id,omitempty"`
+	Mood          *Mood                    `json:"mood,omitempty"`
+	Name          *string                  `json:"name,omitempty"`
+	Plan          *Plan                    `json:"plan,omitempty"`
+	Relationships *map[string]Relationship `json:"relationships,omitempty"`
+}
+
+// TargetAgent defines model for TargetAgent.
+type TargetAgent struct {
+	AgentId *string `json:"agent_id,omitempty"`
+	Name    *string `json:"name,omitempty"`
+}
+
+// WebSocketStatsResponse defines model for WebSocketStatsResponse.
+type WebSocketStatsResponse struct {
+	// ConnectedClients Количество подключенных клиентов
+	ConnectedClients *int `json:"connected_clients,omitempty"`
+}
+
 // PostEventsJSONBody defines parameters for PostEvents.
 type PostEventsJSONBody struct {
-	// Data Данные события
-	Data *struct {
-		// Message Текст сообщения
-		Message string `json:"message"`
+	Data *EventData `json:"data,omitempty"`
 
-		// Mood Настроение агента для ML обработки
-		Mood *string `json:"mood,omitempty"`
-	} `json:"data,omitempty"`
+	// EventType Тип события
+	EventType         *string            `json:"event_type,omitempty"`
+	SimulationContext *SimulationContext `json:"simulation_context,omitempty"`
+	SourceAgent       *SourceAgent       `json:"source_agent,omitempty"`
 
-	// EventType Тип события для ML обработки
-	EventType   *string  `json:"event_type,omitempty"`
-	SourceAgent *AiAgent `json:"source_agent,omitempty"`
-
-	// TargetAgents ИИ агент(ы) - получатели сообщения
-	TargetAgents *[]AiAgent `json:"target_agents,omitempty"`
+	// TargetAgents Агенты-получатели
+	TargetAgents *[]TargetAgent `json:"target_agents,omitempty"`
 
 	// Timestamp Время события
 	Timestamp *time.Time `json:"timestamp,omitempty"`
@@ -85,6 +189,15 @@ type GetFeedParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetHistoryParams defines parameters for GetHistory.
+type GetHistoryParams struct {
+	// Limit Количество событий (максимум 1000)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Смещение для пагинации
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // PostEventsJSONRequestBody defines body for PostEvents for application/json ContentType.
 type PostEventsJSONRequestBody PostEventsJSONBody
 
@@ -93,9 +206,18 @@ type ServerInterface interface {
 	// Publish AI log
 	// (POST /events)
 	PostEvents(ctx echo.Context) error
-	// Get recent events feed
+	// Get recent events feed (from Redis)
 	// (GET /feed)
 	GetFeed(ctx echo.Context, params GetFeedParams) error
+	// Get historical events (from PostgreSQL)
+	// (GET /history)
+	GetHistory(ctx echo.Context, params GetHistoryParams) error
+	// WebSocket connection
+	// (GET /ws)
+	GetWs(ctx echo.Context) error
+	// WebSocket statistics
+	// (GET /ws/stats)
+	GetWsStats(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -130,6 +252,49 @@ func (w *ServerInterfaceWrapper) GetFeed(ctx echo.Context) error {
 	return err
 }
 
+// GetHistory converts echo context to params.
+func (w *ServerInterfaceWrapper) GetHistory(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetHistoryParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetHistory(ctx, params)
+	return err
+}
+
+// GetWs converts echo context to params.
+func (w *ServerInterfaceWrapper) GetWs(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetWs(ctx)
+	return err
+}
+
+// GetWsStats converts echo context to params.
+func (w *ServerInterfaceWrapper) GetWsStats(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetWsStats(ctx)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -160,31 +325,50 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.POST(baseURL+"/events", wrapper.PostEvents)
 	router.GET(baseURL+"/feed", wrapper.GetFeed)
+	router.GET(baseURL+"/history", wrapper.GetHistory)
+	router.GET(baseURL+"/ws", wrapper.GetWs)
+	router.GET(baseURL+"/ws/stats", wrapper.GetWsStats)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9RXbWsbRxD+K8u2HxJQrJObFqpvLqQhkEKh7acizOZuJG/Q3V5294RFENhOS1oUMLSF",
-	"hkIpbX9AFdciimXJf2H2H5XZkyyd7pK4SWnpF3Evu/PMPDPPc6uHPFRxqhJIrOHNh9yEexALf7kjdzqQ",
-	"WLpMtUpBWwn+hYzoNwITaplaqRLe5Pg7znCCZzjCqXuCMzfEFwwneIpjnLkjnLiv8tfuCOfugOEI/1y8",
-	"GvEabysdC8ubPMtkxGvc9lPgTW6slkmHD2o8M6ATEUMF8lM8d8ebAWFfxGmX8v2SVjxde8/wexzhM7rB",
-	"EW+VwAY1ruFBJjVEtNvncwm/Wq7u3YfQUm63eguaNhL7Fef4zA2pehwTGc8ZTvMc3JDXNliNhBUVQX7A",
-	"Ec48n2PmDlcR3XEpQgzGiE4VRb/hGM/coTvKQ1CQb339eZgS27FSVT3+GUcUxB3gPN9NZRV5L3NZoguI",
-	"rt38cUWmE7woF1rKMNUqBGMg2hVV1H/nDnCczwUFOvANn7sjPMNJOfrl9EXCwg0rY3g1ZC6VIuQXidxn",
-	"tNVYEacVsOs4MrEf3FxhyMRCBzSBGJXpEHbFUnnvamjzJn+nvpJpfaHR+lKgRLLQHbD5NlOpkXUFuCG7",
-	"wfAC5zh1j9xjL8oxTn2O0kJs/g5yXoLQWvT9/ZKCV3bljVpQHiZ6JJO2IiwrbZfe7WSRtOwz0D0ZUpAe",
-	"aJPjN7aCrYByVCkkIpW8yd/bamwFJCRh93zVdT+d/jJVxreAJCaohDsRb/JPlbG38jW5T4CxH6moTytD",
-	"ldhF30SadmXot9XvG4JfemvZT/9D5Rds8g9ac4Ijd4ATnNKAjL2Zn+cbKqzyjZ2C4SlO3TH75G61Utbz",
-	"2hNp2n+9Ty85aP0TlvO6/Eo8/Cu6veaG11+i3Or2/u/EvGqo1Rn4ByZVicnHfDvYfguZGSts5q/Wp0uE",
-	"IaQWosrpLtR/ta/EcsjWMRajuWso69YVqSjS7S2HXSY7qPGbQVDuyp2kJ7oyYgtj8uu2Pyyv+1wpFouk",
-	"zxZ2R4Ami2Oh++Rx2b2uNHts5w7rqg5VKTq+kKK3tmhXvQ3gHaADVR/iXy5HdeKO3BM/u+7QH4NOF76w",
-	"qbzSOalowLfBfkyQZNpaxGBBU24l5J8IGSfuMY7JivAE5wUofMGu4TmOyB5xgufuEZ6zRhBcJ91QhAcZ",
-	"6D6v8fzYybsylpbX1sYrgrbIupY3t4Maj8W+jLOYNxsB3clkcVf+yA9apbEO3mKsQ5VVnj6r6qcffI4n",
-	"5GcLo5i5oft6g5iiATeCVtVJZfWhvJLL5IfkCo/JeS3n/yOO8II+IO6bZaL0l2JKvaJhKia5XZXkVYR1",
-	"VxrLVJtpCElhSz3U+PvV+rL0R6DLDOgeaAZaK72hnttgi9FYO5/Xl6qItvt4+SBnusubvC5SWe816oJW",
-	"80Fr8FcAAAD//+8KcimrDQAA",
+	"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",
+	"AA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
