@@ -63,3 +63,5 @@ target/
 
 # Go
 vendor/
+
+*.pem
