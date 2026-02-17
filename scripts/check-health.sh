@@ -144,7 +144,7 @@ check_service "Frontend /health" "hackathon-frontend" \
     "curl -sf http://localhost:8082/health"
 
 check_service "Auth /actuator/health" "hackathon-auth" \
-    "wget -qO- http://localhost:8081/actuator/health"
+    "wget -qO- http://localhost:8080/actuator/health"
 
 check_service "Java /actuator/health" "hackathon-java" \
     "wget -qO- http://localhost:8080/actuator/health"

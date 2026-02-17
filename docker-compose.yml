@@ -214,7 +214,7 @@ services:
     profiles: ["auth", "all"]
     restart: unless-stopped
     expose:
-      - "8081"
+      - "8080"
     env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -230,7 +230,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

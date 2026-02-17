@@ -104,7 +104,7 @@ api.besthackaton.duckdns.org {
             }
         }
 
-        reverse_proxy auth-service:8081 {
+        reverse_proxy auth-service:8080 {
             transport http {
                 dial_timeout 5s
                 response_header_timeout 60s
