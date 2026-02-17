@@ -91,7 +91,7 @@ export function SectionCards() {
 
       try {
         const relations = await AiAgentServiceService.getAiAgentUsersAgentsRelations(userId);
-        
+
         if (!relations || relations.length === 0) {
           setAgents([]);
           localStorage.setItem(LS_KEY, JSON.stringify([]));
@@ -121,8 +121,10 @@ export function SectionCards() {
         setAgents(formattedAgents);
         localStorage.setItem(LS_KEY, JSON.stringify(formattedAgents));
 
+        localStorage.setItem('all_agents_catalog', JSON.stringify(formattedAgents));
+
       } catch (error) {
-        console.error("Ошибка при загрузке агентов:", error);
+        console.error("Ошибка при синхронизации:", error);
       }
     };
 
