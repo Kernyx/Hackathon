@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AgentDrawer, type AgentData } from "./AgentDrawer" // Импортируем тип
-import { deleteAgentFromStorage, getStoredAgents } from "@/lib/storage";
+import { deleteAgentFromStorage, getStoredAgents, LS_KEY } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -26,9 +26,16 @@ export function SectionCards() {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
 
-  const handleDeleteRequest = (e: MouseEvent, id: string) => {
-    e.stopPropagation();
-    setPendingDelete((prev) => new Set(prev).add(id));
+  const handleDeleteRequest = async (e: MouseEvent, id: string) => {
+    try{
+      e.stopPropagation();
+      await AiAgentServiceService.deleteAiAgentAgents(id);
+      deleteAgentFromStorage(id);
+      setPendingDelete((prev) => new Set(prev).add(id));
+    }catch (error) {
+      console.error("Ошибка при удалении:", error);
+    }
+
   };
 
   const handleMouseLeave = (id: string) => {
@@ -39,7 +46,6 @@ export function SectionCards() {
       // Если пользователь увел мышку с "удаляемой" карточки, 
       // даем ему 1.5 - 2 секунды передумать и удаляем окончательно
       const timerId = window.setTimeout(() => {
-        // Удаляем только если "Отмена" всё ещё показывается (т.е. не отменили)
         if (pendingDeleteRef.current.has(id)) {
           deleteAgentFromStorage(id);
           refreshData();
@@ -76,8 +82,52 @@ export function SectionCards() {
   };
 
   useEffect(() => {
-        setAgents(getStoredAgents());
-    }, []);
+    const fetchAgentsFromServer = async () => {
+      const localData = getStoredAgents();
+      if (localData.length > 0) setAgents(localData);
+
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+
+      try {
+        const relations = await AiAgentServiceService.getAiAgentUsersAgentsRelations(userId);
+        
+        if (!relations || relations.length === 0) {
+          setAgents([]);
+          localStorage.setItem(LS_KEY, JSON.stringify([]));
+          return;
+        }
+
+        const agentDetailsPromises = relations.map((rel: any) => 
+          AiAgentServiceService.getAiAgentAgents(rel.agentId)
+        );
+
+        const agentsRawData = await Promise.all(agentDetailsPromises);
+
+        const formattedAgents: AgentData[] = agentsRawData.map((res: any) => ({
+          id: res.id,
+          name: res.username,
+          avatarSeed: res.photo,
+          age: res.age,
+          male: res.isMale,
+          role: res.personalityType,
+          interests: res.interests,
+          traits: typeof res.additionalInformation === 'string' 
+                  ? JSON.parse(res.additionalInformation) 
+                  : res.additionalInformation,
+          ownerId: userId
+        }));
+
+        setAgents(formattedAgents);
+        localStorage.setItem(LS_KEY, JSON.stringify(formattedAgents));
+
+      } catch (error) {
+        console.error("Ошибка при загрузке агентов:", error);
+      }
+    };
+
+    fetchAgentsFromServer();
+  }, []);
 
   const handleAddNew = () => {
     const newAgent: AgentData = {
