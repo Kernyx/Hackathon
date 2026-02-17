@@ -9,6 +9,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
+import { OpenAPI } from "../../api/core/OpenAPI"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,13 +39,11 @@ export function NavUser({
   const { isMobile } = useSidebar()
   const navigate = useNavigate();
   const logout = () => {
-      // 1. Чистим всё по твоему списку
       localStorage.removeItem('userId');
       localStorage.removeItem(LS_KEY); 
       localStorage.removeItem('all_agents_catalog');
       
-      // 2. Сбрасываем токен в самом сервисе (важно для OpenAPI)
-      // OpenAPI.TOKEN = undefined; 
+      OpenAPI.TOKEN = undefined; 
 
 
       navigate('/login');
