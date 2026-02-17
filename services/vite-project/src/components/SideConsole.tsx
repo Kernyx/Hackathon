@@ -13,120 +13,115 @@ import {
   CommandList,
 } from "@/components/ui/command"
 
-// Интерфейс для сообщения
 interface LogEvent {
   id: string;
   timestamp: string;
   data: any;
-  type?: string; // system, error, chat, audit
+  type?: 'system' | 'error' | 'info';
 }
 
 export function SideConsole({ agents = [] }: { agents?: any[] }) {
   const [open, setOpen] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<any>(null)
   
-  // -- STATE ДЛЯ WEBSOCKET --
   const [isConnected, setIsConnected] = useState(true)
   const [events, setEvents] = useState<LogEvent[]>([])
   const [inputValue, setInputValue] = useState("")
+  
   const wsRef = useRef<WebSocket | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // -- ПОДКЛЮЧЕНИЕ (аналог connect() из твоего HTML) --
+  // Функция для добавления системных логов (ошибки, коннекты)
+  const addSystemLog = (message: string, type: 'system' | 'error' = 'system') => {
+    const newMsg: LogEvent = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toLocaleTimeString(),
+      data: message,
+      type: type,
+    };
+    setEvents(prev => [...prev, newMsg]);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    // Создаем подключение
+    scrollToBottom();
+  }, [events]);
+
+  useEffect(() => {
+    if (wsRef.current) return;
+
     const ws = new WebSocket('ws://localhost:8083/api/v1/audit/ws');
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket Connected');
       setIsConnected(true);
-      addSystemMessage('System: Connected to audit stream');
+      addSystemLog("Connected to audit server");
     };
 
     ws.onmessage = (event) => {
-      console.log('Message received:', event.data);
       try {
-        // Пробуем распарсить JSON, как в твоем скрипте
-        const parsedData = JSON.parse(event.data);
-        addLogEvent(parsedData);
+        let displayData;
+        try {
+          displayData = JSON.parse(event.data);
+        } catch {
+          displayData = event.data;
+        }
+
+        setEvents(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toLocaleTimeString(),
+            data: displayData,
+            type: 'info'
+          }
+        ]);
       } catch (e) {
-        // Если пришла просто строка
-        addLogEvent({ raw: event.data });
+        console.error("Message error", e);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      addSystemMessage('System: Connection error', 'error');
+    ws.onerror = () => {
+      addSystemLog("Connection error occurred", "error");
+      setIsConnected(false);
     };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
+      addSystemLog("Disconnected from server", "system");
       setIsConnected(false);
-      addSystemMessage('System: Disconnected', 'error');
+      wsRef.current = null;
     };
 
-    // Cleanup при размонтировании компонента (аналог disconnect())
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }
+      wsRef.current = null;
     };
   }, []);
 
-  // -- ХЕЛПЕРЫ ДЛЯ ДОБАВЛЕНИЯ СООБЩЕНИЙ --
-  
-  const addLogEvent = (data: any, type: string = 'info') => {
-    const newEvent: LogEvent = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toLocaleTimeString(),
-      data: data,
-      type: type
-    };
-    // Добавляем новые сообщения В НАЧАЛО (как в твоем HTML insertBefore), 
-    // или В КОНЕЦ (стандартный чат). Здесь сделаем В НАЧАЛО (Newest top), 
-    // чтобы соответствовать твоему примеру.
-    setEvents(prev => [newEvent, ...prev]);
-  };
-
-  const addSystemMessage = (msg: string, type: string = 'system') => {
-    addLogEvent({ message: msg }, type);
-  }
-
-  // -- ОТПРАВКА СООБЩЕНИЙ --
   const handleSendMessage = () => {
     if (!inputValue.trim() || !wsRef.current || !isConnected) return;
 
     const payload = {
       text: inputValue,
-      // Если выбран агент, добавляем его ID, иначе 'broadcast'
       target: selectedAgent ? selectedAgent.id : 'global', 
       timestamp: new Date().toISOString()
     };
 
-    // Отправляем JSON строку
     wsRef.current.send(JSON.stringify(payload));
-    
-    // Локально отображаем то, что отправили (опционально, зависит от бэкенда)
-    // addLogEvent({ ...payload, sender: 'Me' }, 'outgoing'); 
-
     setInputValue("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
+    if (e.key === 'Enter') handleSendMessage();
   }
 
-  // -- ФИЛЬТРАЦИЯ --
-  // Если бэкенд шлет все подряд, фильтруем на фронте для выбранного агента.
-  // Логика фильтрации зависит от структуры твоих данных. 
-  // Здесь примерная логика: показываем всё, если агент не выбран.
-  const filteredEvents = selectedAgent 
-    ? events // Тут можно добавить .filter(), если в event.data есть agentId
-    : events;
+  const filteredEvents = selectedAgent ? events : events;
 
   return (
     <>
@@ -139,8 +134,7 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
             <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
               {selectedAgent ? `Logs: ${selectedAgent.name}` : "Global Logs"}
             </span>
-            {/* Индикатор статуса */}
-            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-500'}`} title={isConnected ? "Connected" : "Disconnected"} />
+            <div className={`h-2 w-2 rounded-full transition-colors ${isConnected ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-500'}`} />
           </div>
 
           <Button 
@@ -156,34 +150,27 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
 
         {/* 2. СЕКЦИЯ ЛОГОВ */}
         <div className="flex-1 min-h-0 relative"> 
-          <ScrollArea className="h-full w-full" ref={scrollRef}> 
+          <ScrollArea className="h-full w-full"> 
             <div className="p-4 space-y-3 font-mono text-[11px] leading-relaxed">
-              
-              {filteredEvents.length === 0 && (
-                 <div className="text-center text-muted-foreground py-10 opacity-50">
-                    Waiting for events...
-                 </div>
-              )}
-
               {filteredEvents.map((event) => (
-                <div key={event.id} className="animate-in fade-in slide-in-from-top-1 duration-300 border-l-2 border-primary/20 pl-2">
+                <div key={event.id} className={`animate-in fade-in slide-in-from-bottom-1 duration-300 border-l-2 pl-2 ${
+                  event.type === 'error' ? 'border-red-500/50' : 
+                  event.type === 'system' ? 'border-yellow-500/50' : 'border-primary/20'
+                }`}>
                   <div className="flex items-baseline gap-2 mb-0.5">
-                     <span className="text-primary/60 text-[10px]">[{event.timestamp}]</span>
-                     {event.type === 'error' && <span className="text-red-400 font-bold">ERROR</span>}
-                     {event.type === 'system' && <span className="text-yellow-400 font-bold">SYS</span>}
+                    <span className="text-primary/60 text-[10px]">[{event.timestamp}]</span>
+                    {event.type === 'error' && <span className="text-red-400 font-bold uppercase text-[9px]">Error</span>}
+                    {event.type === 'system' && <span className="text-yellow-400 font-bold uppercase text-[9px]">System</span>}
                   </div>
-                  
-                  {/* Рендеринг тела сообщения */}
-                  <div className="text-muted-foreground break-all whitespace-pre-wrap">
-                    {/* Если это объект, преобразуем красиво в строку, иначе выводим как есть */}
-                    {typeof event.data === 'object' 
-                      ? JSON.stringify(event.data, null, 2) 
-                      : String(event.data)
-                    }
+                  <div className={`break-all whitespace-pre-wrap ${
+                    event.type === 'error' ? 'text-red-300' : 
+                    event.type === 'system' ? 'text-yellow-200/80' : 'text-muted-foreground'
+                  }`}>
+                    {typeof event.data === 'object' ? JSON.stringify(event.data, null, 2) : String(event.data)}
                   </div>
                 </div>
               ))}
-
+              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
         </div>
@@ -204,7 +191,7 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isConnected ? (selectedAgent ? `Message ${selectedAgent.name}...` : "Send Text payload...") : "Connecting..."} 
+              placeholder={isConnected ? "Send message..." : "Waiting for connection..."} 
               className="pr-10 bg-background/50 border-muted focus-visible:ring-primary/30"
             />
             <Button 
@@ -220,35 +207,20 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
         </div>
       </aside>
 
-      {/* МОДАЛКА ВЫБОРА (Без изменений) */}
       <CommandDialog open={open} onOpenChange={setOpen}>
+        {/* ... (остальной код модалки без изменений) ... */}
         <CommandInput placeholder="Type a name or 'all'..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          
           <CommandGroup heading="General">
-            <CommandItem 
-              onSelect={() => {
-                setSelectedAgent(null)
-                setOpen(false)
-              }}
-              className="cursor-pointer font-bold text-primary"
-            >
+            <CommandItem onSelect={() => { setSelectedAgent(null); setOpen(false); }} className="cursor-pointer font-bold text-primary">
               <User className="mr-2 h-4 w-4" />
               <span>All Agents (Global Chat)</span>
             </CommandItem>
           </CommandGroup>
-
           <CommandGroup heading="Individual Agents">
             {agents.map((agent) => (
-              <CommandItem 
-                key={agent.id} 
-                onSelect={() => {
-                  setSelectedAgent(agent)
-                  setOpen(false)
-                }}
-                className="cursor-pointer"
-              >
+              <CommandItem key={agent.id} onSelect={() => { setSelectedAgent(agent); setOpen(false); }} className="cursor-pointer">
                 <User className="mr-2 h-4 w-4 opacity-50" />
                 <span>{agent.name}</span>
                 <span className="ml-auto text-[10px] opacity-40">{agent.role}</span>

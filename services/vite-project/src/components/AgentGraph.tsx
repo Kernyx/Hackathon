@@ -1,22 +1,17 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
-import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
-import { toast } from 'sonner';
+import React, { useEffect, useRef, useState } from 'react';
+import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
+import { getStoredAgents } from '@/lib/storage';
 
-interface AgentNode {
+interface AgentNode extends NodeObject {
   id: string;
   name: string;
+  avatarSeed?: string;
+  role?: string;
   img?: HTMLImageElement;
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-  fx?: number;
-  fy?: number;
+  val?: number;
 }
-
-
 
 interface AgentLink {
   source: string | AgentNode;
@@ -30,90 +25,170 @@ interface GraphData {
 }
 
 interface AgentGraphProps {
-  data: GraphData;
   onNodeSelect?: (node: AgentNode) => void;
 }
 
-const AgentGraph: React.FC<AgentGraphProps> = ({ data, onNodeSelect }) => {
+const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   const graphRef = useRef<ForceGraphMethods<AgentNode, AgentLink>>(undefined);
+  const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Функция "выстрела" сообщением
+  const emitMessage = (sourceId: string, targetId: string) => {
+    if (!graphRef.current) return;
+    
+    const link = data.links.find(l => {
+      const sId = typeof l.source === 'object' ? (l.source as any).id : l.source;
+      const tId = typeof l.target === 'object' ? (l.target as any).id : l.target;
+      return sId === sourceId && tId === targetId;
+    });
+
+    if (link) {
+      // Ставим временный текст для визуала
+      link.message = "DATA PACKET"; 
+      graphRef.current.emitParticle(link);
+      
+      // Стираем текст через 2 секунды, чтобы не засирать экран
+      setTimeout(() => { link.message = ""; }, 2000);
+    }
+  };
+
+  // Интервал рандомных сообщений
   useEffect(() => {
-    if (graphRef.current) {
+    const interval = setInterval(() => {
+      if (data.links.length > 0) {
+        const randomLink = data.links[Math.floor(Math.random() * data.links.length)];
+        const s = randomLink.source as AgentNode;
+        const t = randomLink.target as AgentNode;
+
+        if (s?.id && t?.id) {
+          emitMessage(s.id, t.id);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [data]);
+
+  // Загрузка данных
+  useEffect(() => {
+    setIsMounted(true);
+    const agents = getStoredAgents();
+    if (agents.length === 0) return;
+
+    const nodes: AgentNode[] = agents
+      .filter(agent => agent.id)
+      .map(agent => ({
+        id: agent.id!,
+        name: agent.name || "Unknown",
+        avatarSeed: agent.avatarSeed || agent.name,
+        role: agent.role || "Agent",
+        val: 1
+      }));
+
+    const links: AgentLink[] = [];
+    if (nodes.length > 1) {
+      for (let i = 0; i < nodes.length; i++) {
+        const targetIndex = (i + 1) % nodes.length;
+        links.push({
+          source: nodes[i].id,
+          target: nodes[targetIndex].id,
+          message: ""
+        });
+      }
+    }
+    setData({ nodes, links });
+  }, []);
+
+  // Авто-зум
+  useEffect(() => {
+    if (graphRef.current && data.nodes.length > 0) {
       setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 150); // 400мс анимация, 150px отступы
-      }, 200);
+        graphRef.current?.zoomToFit(400, 100);
+      }, 500);
     }
   }, [data]);
+
+  // Загрузка аватаров
   useEffect(() => {
     data.nodes.forEach(node => {
-    if (!node.img) {
+      if (!node.img) {
         const img = new Image();
-        img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.name)}`;
-        img.onload = () => {
-          node.img = img;
-        };
-    }
-  });
+        img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
+        img.onload = () => { node.img = img; };
+      }
+    });
   }, [data.nodes]);
 
   const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const size = 5;
+    const size = 6;
     const { x, y, name, img } = node;
-
+    
+    // Тело узла
     ctx.beginPath();
     ctx.arc(x, y, size, 0, 2 * Math.PI, false);
-    ctx.fillStyle = '#6366f1'; 
+    ctx.fillStyle = '#6366f1';
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5 / globalScale;
     ctx.stroke();
 
+    // Аватар
     if (img && img.complete) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, size - 0.5, 0, 2 * Math.PI, false);
-    ctx.clip();
-    ctx.drawImage(img, x - size, y - size, size * 2, size * 2);
-    ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, size - 0.5, 0, 2 * Math.PI, false);
+      ctx.clip();
+      ctx.drawImage(img, x - size, y - size, size * 2, size * 2);
+      ctx.restore();
     }
 
-    const fontSize = 12 / globalScale;
-    ctx.font = `${fontSize}px Sans-Serif`;
+    // Текст имени
+    let fontSize = Math.max(10 / globalScale, 4);
+    ctx.font = `${fontSize}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillText(name, x, y + size + 2);
+    const opacity = globalScale < 0.2 ? 0 : Math.min(1, (globalScale - 0.2) * 2);
+    ctx.fillStyle = `rgba(224, 224, 224, ${opacity})`;
+
+    if (opacity > 0) {
+      ctx.fillText(name, x, y + size + 2);
+    }
   };
-const drawLinkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const MAX_FONT_SIZE = 4;
+
+  const drawLinkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+    const label = link.message;
+    if (!label || globalScale < 1.2) return;
 
     const start = link.source;
     const end = link.target;
-
     if (typeof start !== 'object' || typeof end !== 'object') return;
 
+    // Вычисляем угол и центр
+    const fontSize = 14 / globalScale;
     const relLink = { x: end.x - start.x, y: end.y - start.y };
-
     let textAngle = Math.atan2(relLink.y, relLink.x);
     if (textAngle > Math.PI / 2) textAngle = -(Math.PI - textAngle);
     if (textAngle < -Math.PI / 2) textAngle = -(-Math.PI - textAngle);
 
-    const label = link.message || "";
-
-    const fontSize = MAX_FONT_SIZE / globalScale;
-    ctx.font = `${fontSize}px monospace`;
-    
     ctx.save();
+    // Переносим контекст в центр ребра
     ctx.translate(start.x + relLink.x / 2, start.y + relLink.y / 2);
     ctx.rotate(textAngle);
 
+    ctx.font = `${fontSize}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
-    ctx.fillText(label, 0, -2); 
+    ctx.fillStyle = '#818cf8';
+    
+    // Рисуем текст в 0,0 (так как мы уже сделали translate)
+    ctx.fillText(label, 0, -2);
     ctx.restore();
   };
+
+  if (!isMounted) return null;
+
   return (
-    <div className="w-full h-250 rounded-xl overflow-hidden bg-transparent relative">
+    <div className="w-full h-full min-h-150 rounded-xl overflow-hidde relative">
       <ForceGraph2D
         ref={graphRef}
         graphData={data}
@@ -121,31 +196,21 @@ const drawLinkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalSc
         nodeCanvasObject={drawNode}
         linkCanvasObject={drawLinkCanvasObject}
         linkCanvasObjectMode={() => 'after'}
-        nodePointerAreaPaint={(node: any, color, ctx) => {
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, 14, 0, 2 * Math.PI, false);
-          ctx.fill();
-        }}
-        onNodeClick={(node) => onNodeSelect?.(node as AgentNode)}
-
-        linkColor={() => 'rgba(156, 163, 175, 0.3)'}
-        linkDirectionalParticles={2}
-        linkDirectionalParticleSpeed={0.005}
-        linkDirectionalParticleWidth={2}
-        onLinkClick={(link: any) => {
-          const sourceName = typeof link.source === 'object' ? link.source.name : link.source;
-          const targetName = typeof link.target === 'object' ? link.target.name : link.target;
-
-          toast(`Установлен контакт: ${sourceName} -> ${targetName}`, {
-          duration: 5000,
-            position: 'bottom-right',
-        });
-        }}
-
-        d3AlphaDecay={0.02}
+        
+        // Физика
+        d3AlphaDecay={0.03}
         d3VelocityDecay={0.3}
-     />
+        cooldownTicks={100}
+        
+        // Связи и частицы
+        linkColor={() => 'rgba(156, 163, 175, 0.2)'}
+        linkDirectionalParticles={0} // 0 по дефолту, только emitMessage их создает
+        linkDirectionalParticleWidth={2.5}
+        linkDirectionalParticleSpeed={0.01}
+        linkDirectionalParticleColor={() => "#818cf8"}
+
+        onNodeClick={(node) => onNodeSelect?.(node as AgentNode)}
+      />
     </div>
   );
 };
