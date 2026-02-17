@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="auth" type="Application" factoryName="Application">
+    <option name="ALTERNATIVE_JRE_PATH" value="corretto-21" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <envs>
+      <env name="DB_HOST" value="10.66.66.1" />
+      <env name="DB_USERNAME" value="hackathon" />
+      <env name="DB_PASSWORD" value="123" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.nikguscode.auth.AuthServiceApplication" />
+    <module name="auth-service" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

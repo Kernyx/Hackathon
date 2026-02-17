@@ -1,0 +1,15 @@
+spring:
+  profiles:
+    active: dev
+
+  application:
+    name: auth-template
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_db
+    username: postgres
+    password: password
+
+rsa:
+  public-key: classpath:token/public.pem
+  private-key: classpath:token/private.pem
