@@ -21,6 +21,86 @@ interface LogEvent {
   type?: 'system' | 'error' | 'info';
 }
 
+/**
+ * Module-scoped dedupe cache.
+ * In dev, React.StrictMode can remount components, resetting `useRef` state.
+ * Keeping fingerprints here prevents duplicate messages after remount/reconnect.
+ */
+const recentFingerprints = new Map<string, number>();
+
+const stableStringify = (value: unknown): string => {
+  const seen = new WeakSet<object>();
+
+  const normalize = (v: unknown): unknown => {
+    if (!v || typeof v !== "object") return v;
+    if (seen.has(v as object)) return "[Circular]";
+    seen.add(v as object);
+
+    if (Array.isArray(v)) return v.map(normalize);
+
+    const obj = v as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const out: Record<string, unknown> = {};
+    for (const k of keys) out[k] = normalize(obj[k]);
+    return out;
+  };
+
+  try {
+    return JSON.stringify(normalize(value));
+  } catch {
+    return String(value);
+  }
+};
+
+const fingerprintForEventData = (data: unknown): string => {
+  if (typeof data === "string") return `str:${data.trim()}`;
+  if (!data) return `nil:${String(data)}`;
+
+  if (typeof data === "object") {
+    const obj = data as any;
+
+    // Prefer stable ids if server provides them
+    const id = obj?.id ?? obj?.eventId ?? obj?.event_id ?? obj?.uuid ?? obj?.message_id;
+    if (id != null) return `id:${String(id)}`;
+
+    // Strip volatile fields (common causes of "same message, different JSON")
+    const {
+      timestamp,
+      ts,
+      createdAt,
+      created_at,
+      updatedAt,
+      updated_at,
+      // sometimes servers embed correlation/request ids
+      correlationId,
+      correlation_id,
+      requestId,
+      request_id,
+      ...rest
+    } = obj ?? {};
+
+    return `obj:${stableStringify(rest)}`;
+  }
+
+  return `other:${String(data)}`;
+};
+
+const shouldIgnoreAsDuplicate = (fingerprint: string, windowMs = 5000) => {
+  const now = Date.now();
+  const last = recentFingerprints.get(fingerprint);
+  if (last && now - last < windowMs) return true;
+
+  recentFingerprints.set(fingerprint, now);
+
+  // prevent unbounded growth
+  if (recentFingerprints.size > 800) {
+    const entries = Array.from(recentFingerprints.entries()).sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i < 320; i++) recentFingerprints.delete(entries[i][0]);
+  }
+
+  return false;
+};
+
 export function SideConsole() {
   const [open, setOpen] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<any>(null)
@@ -33,7 +113,6 @@ export function SideConsole() {
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isConnectingRef = useRef(false);
-  const processedMessageIds = useRef<Set<string>>(new Set());
 
   // Загружаем агентов из localStorage
   useEffect(() => {
@@ -42,10 +121,8 @@ export function SideConsole() {
 
   // Функция для добавления системных логов (ошибки, коннекты)
   const addSystemLog = (message: string, type: 'system' | 'error' = 'system') => {
-    const messageId = `${Date.now()}-${message}`;
-    if (processedMessageIds.current.has(messageId)) return;
-    
-    processedMessageIds.current.add(messageId);
+    const fingerprint = `system:${type}:${message}`;
+    if (shouldIgnoreAsDuplicate(fingerprint, 3000)) return;
     
     const newMsg: LogEvent = {
       id: crypto.randomUUID(),
@@ -88,22 +165,8 @@ export function SideConsole() {
           displayData = event.data;
         }
 
-        // Создаем уникальный ID для сообщения на основе данных и времени
-        const messageId = `${Date.now()}-${JSON.stringify(displayData)}`;
-        
-        // Проверяем, не обрабатывали ли мы уже это сообщение
-        if (processedMessageIds.current.has(messageId)) {
-          console.log('Duplicate message ignored:', messageId);
-          return;
-        }
-        
-        processedMessageIds.current.add(messageId);
-        
-        // Ограничиваем размер Set, чтобы не было утечек памяти
-        if (processedMessageIds.current.size > 1000) {
-          const firstId = Array.from(processedMessageIds.current)[0];
-          processedMessageIds.current.delete(firstId);
-        }
+        const fingerprint = `msg:${fingerprintForEventData(displayData)}`;
+        if (shouldIgnoreAsDuplicate(fingerprint, 5000)) return;
 
         setEvents(prev => [
           ...prev,

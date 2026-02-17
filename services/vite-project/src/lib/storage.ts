@@ -1,4 +1,4 @@
-import type { AgentData } from "@/components/AgentDrawer";
+import type { AgentData } from "../components/AgentDrawer";
 
 export const LS_KEY = "ai_agents_data";
 
@@ -10,9 +10,8 @@ export const getStoredAgents = (): AgentData[] => {
 
 export const saveAgentToStorage = (agent: any) => {
   try {
-    const key = "ai_agents_data"; // Убедись, что ключ именно такой
     // 1. Достаем старые данные
-    const existingData = localStorage.getItem(key);
+    const existingData = localStorage.getItem(LS_KEY);
     const agents = existingData ? JSON.parse(existingData) : [];
     
     // 2. Проверяем, нет ли уже агента с таким ID, чтобы не плодить дубликаты
@@ -25,9 +24,22 @@ export const saveAgentToStorage = (agent: any) => {
     }
     
     // 3. Сохраняем обратно в строку
-    localStorage.setItem(key, JSON.stringify(agents));
+    localStorage.setItem(LS_KEY, JSON.stringify(agents));
     console.log("✅ Записано в LocalStorage успешно!");
   } catch (e) {
     console.error("❌ Ошибка записи в LS:", e);
+  }
+};
+
+export const deleteAgentFromStorage = (id: string) => {
+  try {
+    const existingData = localStorage.getItem(LS_KEY);
+    if (!existingData) return;
+
+    const agents = JSON.parse(existingData) as Array<{ id?: string }>;
+    const next = agents.filter((a) => a?.id !== id);
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+  } catch (e) {
+    console.error("❌ Ошибка удаления из LS:", e);
   }
 };

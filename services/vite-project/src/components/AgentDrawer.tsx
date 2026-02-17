@@ -150,7 +150,7 @@ React.useEffect(() => {
 
   return (
     <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-full w-full sm:max-w-100 ml-auto rounded-none border-none shadow-2xl bg-card">
+      <DrawerContent className="h-full w-full sm:max-w-100 ml-auto rounded-none shadow-2xl bg-card">
         <DrawerHeader className="gap-1">
           <DrawerTitle>{agent.id ? "Редактирование" : "Новый агент"}</DrawerTitle>
           <DrawerDescription>Настройка параметров ИИ-агента</DrawerDescription>
@@ -176,11 +176,11 @@ React.useEffect(() => {
                 <Select value={role} onValueChange={handleRoleChange}>
                   <SelectTrigger id="type" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Custom">Индивидуальный (пользовательский)</SelectItem>
                     <SelectItem value="Analyst">Альтруист (добрый)</SelectItem>
                     <SelectItem value="Diplomat">Макиавеллист (злой)</SelectItem>
                     <SelectItem value="Aggressor">Бунтарь (непредсказуемый)</SelectItem>
                     <SelectItem value="Thinker">Стоик (хладнокровный)</SelectItem>
-                    <SelectItem value="Custom">Индивидуальный (пользовательский)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
