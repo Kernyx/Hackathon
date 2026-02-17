@@ -16,7 +16,7 @@ FROM python:3.12-slim
 LABEL maintainer="hackathon-ml"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libgomp1 && \
+    apt-get install -y --no-install-recommends libgomp1 procps && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /install /usr/local

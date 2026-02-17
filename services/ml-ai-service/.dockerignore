@@ -5,7 +5,7 @@ __pycache__/
 .gitignore
 *.md
 backups/
-data/chroma_db/
+data/
 venv/
 .venv/
 run.bat
