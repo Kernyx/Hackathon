@@ -2,6 +2,7 @@ package main
 
 import (
 	"audite-service/internal/api/openapi"
+	"audite-service/internal/auth"
 	"audite-service/internal/handlers"
 	"audite-service/internal/processor"
 	"audite-service/internal/storage"
@@ -24,6 +25,20 @@ func getEnv(key, defaultValue string) string {
 }
 
 func main() {
+	// Загружаем JWT секретный ключ
+
+	/*
+		secretKeyPath := getEnv("JWT_SECRET_PATH", "jwt_secret.key")
+		secretKey, err := auth.LoadSecretKey(secretKeyPath)
+		if err != nil {
+			log.Fatalf("Failed to load JWT secret key: %v", err)
+		}
+		log.Println("JWT secret key loaded")
+	*/
+	secretKey := []byte("a-string-secret-at-least-256-bits-long")
+	jwtMiddleware := auth.JWTMiddleware(secretKey)
+	wsJwtMiddleware := auth.WSJWTMiddleware(secretKey)
+
 	// redis
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
@@ -81,13 +96,20 @@ func main() {
 	wsHandler := handlers.NewWebSocketHandler(hub)
 
 	api := e.Group("/api/v1/audit")
+	api.Use(jwtMiddleware)
+
 	api.POST("/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
 	api.GET("/history", feedHandler.GetHistory)
 	api.GET("/agents/:agent_id/events", feedHandler.GetAgentEvents)
 	api.GET("/agents/:agent_id/stats", feedHandler.GetAgentStats)
-	api.GET("/ws", wsHandler.ServeWS)
-	api.GET("/ws/stats", wsHandler.GetStats)
+
+	// websocket
+	ws := e.Group("/api/v1/audit")
+	ws.Use(wsJwtMiddleware)
+
+	ws.GET("/ws", wsHandler.ServeWS)
+	ws.GET("/ws/stats", wsHandler.GetStats)
 
 	go func() {
 		if err := e.Start(":8083"); err != nil {
