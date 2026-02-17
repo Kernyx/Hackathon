@@ -1,94 +1,94 @@
-  openapi: 3.1.0
+openapi: 3.1.0
 
-  info:
-    title: Error Contract
-    version: 1.0.0
+info:
+  title: Error Contract
+  version: 1.0.0
 
-  paths: {}
+paths: { }
 
-  components:
-    schemas:
+components:
+  schemas:
 
-      ErrorCode:
-        type: string
-        description: >
-          Application specific error codes.
-          
-          Prefixes:
-          A - Authentication, S - Signup, L - Login, AT - Access Token, RT - Refresh Token, R - Authorization
-        enum:
-          - A-1000
+    ErrorCode:
+      type: string
+      description: >
+        Application specific error codes.
+        
+        Prefixes:
+        A - Authentication, S - Signup, L - Login, AT - Access Token, RT - Refresh Token, R - Authorization
+      enum:
+        - A-1000
 
-          - A-S1001
-          
-          - A-L1001
-          - A-L1002
-          - A-L1003
-          
-          - A-AT1001
-          - A-AT1002
-          
-          - A-RT1001
-          - A-RT1002
-          
-          - A-R1001
-          - A-R1002
-          - A-R1003
-        x-enum-varnames:
-          - INTERNAL_ERROR
-          
-          - INVALID_SIGNUP_CREDENTIALS
-          
-          - INVALID_LOGIN_CREDENTIALS
-          - ACCOUNT_BANNED
-          - TOO_MANY_LOGIN_ATTEMPTS
-          
-          - ACCESS_TOKEN_EXPIRED
-          - ACCESS_TOKEN_INVALID
-          
-          - REFRESH_TOKEN_EXPIRED
-          - REFRESH_TOKEN_INVALID
-          
-          - INSUFFICIENT_PERMISSIONS
-          - FORBIDDEN_RESOURCE
-          - ROLE_NOT_ALLOWED
-        x-enum-descriptions:
-          - Internal error
-          
-          - Invalid signup credentials
-          
-          - Invalid login credentials
-          - Account banned
-          - Too many login attempts
-          
-          - Access token expired
-          - Access token signature invalid
-          
-          - Refresh token expired
-          - Refresh token invalid
-          
-          - Insufficient permissions
-          - Forbidden resource
-          - Role not allowed
+        - A-S1001
 
-      ErrorResponse:
-        type: object
-        required:
-          - code
-          - message
-          - timestamp
-        properties:
-          code:
-            $ref: '#/components/schemas/ErrorCode'
-          message:
-            type: string
-            description: Human readable error message
-            example: "Access token expired"
-          timestamp:
-            type: string
-            format: date-time
-            description: Error occurrence time
-          traceId:
-            type: string
-            description: Unique identifier for log tracing
-            example: "6f8c2d1e"
+        - A-L1001
+        - A-L1002
+        - A-L1003
+
+        - A-AT1001
+        - A-AT1002
+
+        - A-RT1001
+        - A-RT1002
+
+        - A-R1001
+        - A-R1002
+        - A-R1003
+      x-enum-varnames:
+        - INTERNAL_ERROR
+
+        - INVALID_SIGNUP_CREDENTIALS
+
+        - INVALID_LOGIN_CREDENTIALS
+        - ACCOUNT_BANNED
+        - TOO_MANY_LOGIN_ATTEMPTS
+
+        - ACCESS_TOKEN_EXPIRED
+        - ACCESS_TOKEN_INVALID
+
+        - REFRESH_TOKEN_EXPIRED
+        - REFRESH_TOKEN_INVALID
+
+        - INSUFFICIENT_PERMISSIONS
+        - FORBIDDEN_RESOURCE
+        - ROLE_NOT_ALLOWED
+      x-enum-descriptions:
+        - Internal error
+
+        - Invalid signup credentials
+
+        - Invalid login credentials
+        - Account banned
+        - Too many login attempts
+
+        - Access token expired
+        - Access token signature invalid
+
+        - Refresh token expired
+        - Refresh token invalid
+
+        - Insufficient permissions
+        - Forbidden resource
+        - Role not allowed
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Human readable error message
+          example: "Access token expired"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence time
+        traceId:
+          type: string
+          description: Unique identifier for log tracing
+          example: "6f8c2d1e"
