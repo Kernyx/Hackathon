@@ -168,7 +168,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <div className="h-screen border-r border-border bg-card">
       <Sidebar 
-        collapsible="none" 
+        collapsible="offcanvas" 
         className="w-65 h-full"
         {...props}
       >
