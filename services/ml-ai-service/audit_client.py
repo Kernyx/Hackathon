@@ -1,10 +1,13 @@
 """
-Audit Service клиент: отправка событий (POST /events) в Audit Service.
+Audit Service клиент: отправка событий (POST /api/v1/audit/events) в Audit Service.
 
-Передаёт ПОЛНУЮ информацию о состоянии агентов и симуляции:
-  - Полные данные source/target агентов (раса, Big Five, настроение, отношения, план)
-  - Контекст симуляции (тик, сценарий, фаза, активное событие, тема)
-  - Текст сообщения и метаданные
+Формат payload по swagger-спецификации:
+  - source_agent: { agent_id, name, mood, relationships, activity, plan }
+  - target_agents: [{ agent_id, name }]
+  - data: { message, tick, is_initiative, action_result, sentiments }
+  - simulation_context: { scenario_name, current_topic, phase }
+
+Авторизация: Bearer JWT (токен из env AUDIT_JWT_TOKEN).
 """
 
 import threading
@@ -14,7 +17,7 @@ from typing import Optional, TYPE_CHECKING
 import httpx
 from colorama import Fore, Style
 
-from config import AUDIT_API_URL
+from config import AUDIT_API_URL, AUDIT_JWT_TOKEN
 
 if TYPE_CHECKING:
     from agent import Agent
@@ -26,13 +29,13 @@ _audit_http_client = httpx.Client(
 )
 
 
-def _serialize_agent(agent: 'Agent') -> dict:
-    """Сериализовать полное состояние агента для API."""
+def _serialize_source_agent(agent: 'Agent') -> dict:
+    """
+    Сериализовать состояние агента-инициатора для Audit API.
+    Формат: agent_id, name, mood, relationships, activity, plan.
+    """
     _reg = agent._get_registry()
-
     mood = agent.mood
-    race = agent.race
-    mods = race.modifiers
     plan = agent.current_plan
 
     # Отношения: agent_id → { value, display_name }
@@ -46,36 +49,8 @@ def _serialize_agent(agent: 'Agent') -> dict:
     return {
         "agent_id": agent.agent_id,
         "name": _reg.get_name(agent.agent_id),
-        "personality_type": agent.personality_type.value,
-        "race": {
-            "type": agent.race_type.value,
-            "name_ru": race.name_ru,
-            "emoji": race.emoji,
-            "description": race.description,
-            "modifiers": {
-                "repair_bonus": mods.repair_bonus,
-                "combat_bonus": mods.combat_bonus,
-                "diplomacy_bonus": mods.diplomacy_bonus,
-                "detection_bonus": mods.detection_bonus,
-                "can_betray": mods.can_betray,
-                "stubborn": mods.stubborn,
-            },
-        },
-        "big_five": {
-            "openness": agent.big_five.openness,
-            "conscientiousness": agent.big_five.conscientiousness,
-            "extraversion": agent.big_five.extraversion,
-            "agreeableness": agent.big_five.agreeableness,
-            "neuroticism": agent.big_five.neuroticism,
-        },
-        "demographics": {
-            "is_male": agent.is_male,
-            "age": agent.age,
-            "interests": agent.interests,
-        },
         "mood": {
             "dominant_emotion": mood.get_dominant_emotion(),
-            "emoji": mood.get_emoji(),
             "happiness": round(mood.happiness, 3),
             "energy": round(mood.energy, 3),
             "stress": round(mood.stress, 3),
@@ -85,16 +60,21 @@ def _serialize_agent(agent: 'Agent') -> dict:
         "relationships": relationships,
         "activity": {
             "talkativeness": round(agent.talkativeness, 3),
-            "ticks_silent": agent.ticks_silent,
             "messages_spoken": agent.messages_spoken,
-            "consecutive_similar_count": agent.consecutive_similar_count,
         },
         "plan": {
             "goal": plan.goal if plan else None,
-            "current_step": plan.current_step if plan else None,
-            "steps": plan.steps if plan else [],
+            "current_step": plan.current_step if plan else 0,
         } if plan else None,
-        "active_event": agent.active_event,
+    }
+
+
+def _serialize_target_agent(agent: 'Agent') -> dict:
+    """Сериализовать агента-получателя (только id и имя)."""
+    _reg = agent._get_registry()
+    return {
+        "agent_id": agent.agent_id,
+        "name": _reg.get_name(agent.agent_id),
     }
 
 
@@ -147,30 +127,20 @@ def send_audit_event(
 
     payload = {
         "event_type": event_type,
-        "user_id": source_agent.user_id,
-        "source_agent": _serialize_agent(source_agent),
-        "target_agents": [_serialize_agent(a) for a in target_agents],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source_agent": _serialize_source_agent(source_agent),
+        "target_agents": [_serialize_target_agent(a) for a in target_agents],
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data": {
             "message": message,
-            "mood": source_agent.mood.get_dominant_emotion(),
             "tick": tick,
             "is_initiative": is_initiative,
-            "is_new_topic": is_new_topic,
             "action_result": action_result,
             "sentiments": sentiments_data,
         },
         "simulation_context": {
-            "scenario": {
-                "name": scenario_name,
-                "description": scenario_description,
-            },
-            "active_event": active_event,
+            "scenario_name": scenario_name,
             "current_topic": current_topic,
-            "phase": {
-                "current": current_phase,
-                "label": phase_label,
-            },
+            "phase": current_phase,
         },
     }
 
@@ -185,10 +155,14 @@ def send_audit_event(
 def _send_request(payload: dict) -> None:
     """Фактическая отправка POST-запроса (выполняется в фоновом потоке)."""
     try:
+        headers = {"Content-Type": "application/json"}
+        if AUDIT_JWT_TOKEN:
+            headers["Authorization"] = f"Bearer {AUDIT_JWT_TOKEN}"
+
         response = _audit_http_client.post(
             AUDIT_API_URL,
             json=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
         )
         if response.status_code == 202:
             pass  # Успех — тихо

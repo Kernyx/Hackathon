@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- LLM ---
-LLM_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:1234/v1")
+LLM_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:1234/v1")
 LLM_API_KEY = os.getenv("OLLAMA_API_KEY", "not-needed")
 LLM_MODEL = os.getenv("OLLAMA_MODEL", "qwen-3-14b-instruct")
 LLM_TIMEOUT = 60
@@ -18,7 +18,10 @@ LLM_MAX_RETRIES = 3
 LLM_RETRY_DELAY = 2.0
 
 # --- Audit ---
-AUDIT_API_URL = os.getenv("AUDIT_API_URL", "http://localhost:8000/events")
+# В Docker: http://go-backend:8083/api/v1/audit/events
+# Локально: http://localhost:8083/api/v1/audit/events (если Go-бэкенд запущен)
+AUDIT_API_URL = os.getenv("AUDIT_API_URL", "http://go-backend:8083/api/v1/audit/events")
+AUDIT_JWT_TOKEN = os.getenv("AUDIT_JWT_TOKEN", "")
 
 # --- Симуляция ---
 MAX_TICKS = 150
@@ -71,4 +74,4 @@ MOOD_EVENT_IMPACT = 0.30
 MOOD_INTERACTION_IMPACT = 0.15
 
 # --- Реэкспорт данных из data_presets (для обратной совместимости) ---
-from data_presets.mood_data import MOOD_EMOJIS, EVENT_MOOD_TRIGGERS  # noqa: F401, E402
+from data_presets.mood_data import MOOD_EMOJIS, EVENT_MOOD_TRIGGERS

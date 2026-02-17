@@ -4,13 +4,14 @@
 """
 
 import re
+import time
 import random
 from typing import Optional
 
 from colorama import Fore, Style
 
 from config import (
-    MAX_RESPONSE_CHARS,
+    MAX_RESPONSE_CHARS, MEMORY_WINDOW,
     EVENT_FOCUS_DURATION, EVENT_FORCED_REACTION_TICKS,
     SCENARIO_EVENT_INTERVAL, CREATIVITY_BOOST,
     RELATIONSHIP_CHANGE_RATE, REPETITION_SIMILARITY_THRESHOLD,
@@ -19,7 +20,9 @@ from config import (
 )
 from models import (
     PersonalityType, BigFiveTraits, RaceType,
+    RACES, AgentMood,
 )
+from memory import AgentMemorySystem
 from agent_registry import agent_registry
 from agent import Agent
 from topics import TopicManager, DialoguePhaseManager
@@ -31,7 +34,7 @@ from data_presets.race_presets import RACE_PRESETS, AGENT_COLORS
 
 
 def create_agents(race_preset: str = "humans", user_id: str = "",
-                  registry: 'AgentRegistry' = None) -> list['Agent']:  # noqa: F821
+                  registry: 'AgentRegistry' = None) -> list['Agent']:
     """Создать агентов по выбранному расовому пресету.
     
     Args:
@@ -98,7 +101,7 @@ def create_agents(race_preset: str = "humans", user_id: str = "",
 class BigBrotherOrchestrator:
     def __init__(self, agents: list[Agent], scenario_name: str = "desert_island",
                  user_event_input: Optional[UserEventInput] = None,
-                 user_id: str = "", registry: 'AgentRegistry' = None):  # noqa: F821
+                 user_id: str = "", registry: 'AgentRegistry' = None):
         self.agents = agents
         self.user_id = user_id
         self._registry = registry if registry is not None else agent_registry
@@ -705,9 +708,31 @@ class BigBrotherOrchestrator:
                                       is_own=False, is_action_result=True)
 
     def inject_user_message(self, message_text: str, target_agents: list[Agent]):
+        """Инжектить сообщение пользователя (терминальный режим, с print)."""
+        responses = self._inject_user_message_core(message_text, target_agents)
+        # Печать для терминального режима
+        for resp in responses:
+            agent = next((a for a in self.agents if a.agent_id == resp["agent_id"]), None)
+            if agent:
+                is_personal = len(target_agents) == 1
+                tick_str = f"{Fore.WHITE}[tick {self.tick:>3}]"
+                name_str = f"{agent.color}{Style.BRIGHT}{resp['name']}"
+                arrow = f"{Fore.MAGENTA}→ Игроку" if is_personal else f"{Fore.MAGENTA}→ Всем"
+                text_str = f"{Style.RESET_ALL}{resp['text']}"
+                print(f"{tick_str} {name_str} {arrow}: {text_str}")
+        print()
+
+    def inject_user_message_api(self, message_text: str, target_agents: list[Agent]) -> list[dict]:
+        """Инжектить сообщение пользователя (API режим, возвращает ответы)."""
+        return self._inject_user_message_core(message_text, target_agents)
+
+    def _inject_user_message_core(self, message_text: str, target_agents: list[Agent]) -> list[dict]:
+        """Ядро обработки сообщения пользователя. Возвращает список ответов агентов."""
         message_text = message_text.strip()
         if not message_text or not target_agents:
-            return
+            return []
+
+        responses = []
 
         target_names = [self._registry.get_name(a.agent_id) for a in target_agents]
         is_personal = len(target_agents) == 1
@@ -800,11 +825,16 @@ class BigBrotherOrchestrator:
             self.conversation.append(reply_entry)
             self.topic_manager.record_message(agent_display)
 
-            tick_str = f"{Fore.WHITE}[tick {self.tick:>3}]"
-            name_str = f"{agent.color}{Style.BRIGHT}{agent_display}"
-            arrow = f"{Fore.MAGENTA}→ Игроку" if is_personal else f"{Fore.MAGENTA}→ Всем"
-            text_str = f"{Style.RESET_ALL}{text}"
-            print(f"{tick_str} {name_str} {arrow}: {text_str}")
+            # Собираем ответ для возврата через API
+            responses.append({
+                "agent_id": agent.agent_id,
+                "name": agent_display,
+                "text": text,
+                "tick": self.tick,
+                "race": agent.race.race_type.value,
+                "race_emoji": agent.race.emoji,
+                "mood": agent.mood.get_dominant_emotion(),
+            })
 
             for a in self.agents:
                 is_own = (a.agent_id == agent.agent_id)
@@ -816,7 +846,7 @@ class BigBrotherOrchestrator:
             agent.update_talkativeness_spoke()
             agent.memory_system.record_action(text)
 
-        print()
+        return responses
 
     def _parse_user_input(self, raw_input: str) -> tuple[str, Optional[list[Agent]]]:
         raw_input = raw_input.strip()
@@ -1043,7 +1073,7 @@ class BigBrotherOrchestrator:
         for pattern in gm_copy_patterns:
             if pattern in text_lower:
                 self._log_warning(f"{speaker_display} скопировал текст результата: '{pattern}'")
-                return False, "не копируй текст результата — говори от себя"
+                return False, f"не копируй текст результата — говори от себя"
 
         if len(text.split()) < 3:
             self._log_warning(f"слишком короткое от {speaker_display}: '{text[:30]}'")
@@ -1082,7 +1112,7 @@ class BigBrotherOrchestrator:
         for pattern in system_tag_patterns:
             if pattern in text_lower:
                 self._log_warning(f"{speaker_display} скопировал системный тег: '{pattern}'")
-                return False, "не копируй системные теги — говори от себя"
+                return False, f"не копируй системные теги — говори от себя"
 
         return True, ""
 
