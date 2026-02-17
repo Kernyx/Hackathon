@@ -1,6 +1,10 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:5432/hackathon_db
+    url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
+rsa:
+  public-key: file:/app/keys/public.pem
+  private-key: file:/app/keys/private.pem
