@@ -156,14 +156,13 @@ func (p *PostgresStore) GetHistoryWithPagination(limit, offset int) ([]*openapi.
 	return events, total, nil
 }
 
-// Поиск по типу события
-func (p *PostgresStore) GetEventsByType(eventType string, limit int) ([]*openapi.Event, error) {
+// Получить события конкретного агента
+func (p *PostgresStore) GetEventsByAgentID(agentID string, limit int) ([]*openapi.Event, error) {
 	var dbEvents []Event
-	result := p.db.Where("event_type = ?", eventType).
-		Order("created_at DESC").
-		Limit(limit).
-		Find(&dbEvents)
 
+	query := p.db.Where("source_agent_id = ?", agentID)
+
+	result := query.Order("created_at DESC").Limit(limit).Find(&dbEvents)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -174,6 +173,53 @@ func (p *PostgresStore) GetEventsByType(eventType string, limit int) ([]*openapi
 	}
 
 	return events, nil
+}
+
+// Получить статистику по агенту
+func (p *PostgresStore) GetAgentStats(agentID string) (map[string]interface{}, error) {
+	var stats struct {
+		TotalEvents  int64
+		MessagesSent int64
+		LastActivity *time.Time
+		EventTypes   map[string]int64
+	}
+
+	p.db.Model(&Event{}).Where("source_agent_id = ?", agentID).Count(&stats.TotalEvents)
+
+	p.db.Model(&Event{}).
+		Where("source_agent_id = ? AND message IS NOT NULL", agentID).
+		Count(&stats.MessagesSent)
+
+	var lastEvent Event
+	result := p.db.Where("source_agent_id = ?", agentID).
+		Order("created_at DESC").
+		First(&lastEvent)
+	if result.Error == nil {
+		stats.LastActivity = &lastEvent.CreatedAt
+	}
+
+	var typeStats []struct {
+		EventType string
+		Count     int64
+	}
+	p.db.Model(&Event{}).
+		Select("event_type, count(*) as count").
+		Where("source_agent_id = ?", agentID).
+		Group("event_type").
+		Find(&typeStats)
+
+	stats.EventTypes = make(map[string]int64)
+	for _, ts := range typeStats {
+		stats.EventTypes[ts.EventType] = ts.Count
+	}
+
+	return map[string]interface{}{
+		"agent_id":      agentID,
+		"total_events":  stats.TotalEvents,
+		"messages_sent": stats.MessagesSent,
+		"last_activity": stats.LastActivity,
+		"event_types":   stats.EventTypes,
+	}, nil
 }
 
 // Маппинг из OpenAPI в БД модель
