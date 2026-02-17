@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './AuthForm.css';
-import {AuthenticationServiceService} from '../../../../api/services/AuthenticationServiceService.ts';
-import Logo from './Logo.tsx'
+import { AuthenticationServiceService } from '../../../../api/services/AuthenticationServiceService.ts';
+import Logo from './Logo.tsx';
 import LoadingPage from './LoadingPage.tsx';
 import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, User } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
   "A-1000": "Внутренняя ошибка сервера. Попробуйте позже.",
@@ -53,30 +54,25 @@ const AuthForm: React.FC = () => {
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         
+        // Сбрасываем ошибки перед новой проверкой
         setEmailError(null);
         setPasswordError(null);
         setServerError(null);
-        
-        let hasError = false;
 
+        // 1. Сначала валидируем email, и если он не ок — показываем ТОЛЬКО его
         if (!/\S+@\S+\.\S+/.test(email)) {
-                setEmailError("Введите корректный email");
-                hasError = true;
-                setTimeout(() => setEmailError(null), 3000);
+            setEmailError("Введите корректный email");
+            setTimeout(() => setEmailError(null), 3000);
+            return;
         }
 
+        // 2. Если email ок — проверяем пароль
         if (!regularExpression.test(password)) {
-                setPasswordError("Пароль должен быть минимум 8 символов");
-                hasError = true;
+            setPasswordError("Нужно хотя бы 8 символов, одна буква и цифра");
+            setTimeout(() => setPasswordError(null), 3000);
+            return;
         }
 
-        if (hasError) {
-                setTimeout(() => {
-                    setEmailError(null);
-                    setPasswordError(null);
-                }, 3000);
-                return;
-        }
         
         try {
             if (isSignUp) {
@@ -109,7 +105,7 @@ const AuthForm: React.FC = () => {
                 setServerError("Ошибка сети или сервер недоступен");
             } else {
                 setIsLoading(false);
-                const friendlyMessage = ERROR_MESSAGES[errorCode] || `Ошибка сервера: ${errorCode || 'Unknown'}`;
+                const friendlyMessage = ERROR_MESSAGES[errorCode] || `Ошибка сервера ${errorCode || ""}`;
                 setServerError(friendlyMessage);
             }
 
@@ -186,20 +182,59 @@ const AuthForm: React.FC = () => {
                         </div>
                         <h1 className="font-bold text-2xl mb-6 text-[#E0E0E0]">Создать аккаунт</h1>
                         
-                        <input type="text" placeholder="Имя"  value={username} onChange={(e) => setUsername(e.target.value)} className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5" />
-                        <input 
-                            type="email" 
-                            placeholder="Email" 
-                            autoComplete="username"
-                            className={`input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5`} 
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                if(emailError) setEmailError(null);
-                            }}
-                            required
-                        />
-                        <input type="password" placeholder="Пароль" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
+                        {/* Имя */}
+                        <div className="relative w-6/12 mb-5">
+                            <input
+                                type="text"
+                                placeholder="Имя"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="input input-ghost w-full bg-[#353A3E] shadow-xl/25 rounded-xl pr-10"
+                            />
+                            {username && (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#BFBFBF]">
+                                    <User className="h-4 w-4" />
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Email */}
+                        <div className="relative w-6/12 mb-5">
+                            <input 
+                                type="email" 
+                                placeholder="Email" 
+                                autoComplete="username"
+                                className="input input-ghost w-full bg-[#353A3E] shadow-xl/25 rounded-xl pr-10" 
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    if (emailError) setEmailError(null);
+                                }}
+                                required
+                            />
+                            {email && (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#BFBFBF]">
+                                    <Mail className="h-4 w-4" />
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Пароль */}
+                        <div className="relative w-6/12 mb-10">
+                            <input
+                                type="password"
+                                placeholder="Пароль"
+                                autoComplete="new-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="input input-ghost w-full bg-[#353A3E] shadow-xl/25 rounded-xl pr-10"
+                            />
+                            {password && (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#BFBFBF]">
+                                    <Lock className="h-4 w-4" />
+                                </span>
+                            )}
+                        </div>
 
                         <button className="btn rounded-full bg-[#222526]/0 text-[#E0E0E0] border border-[#E0E0E0] hover:bg-[#222526] px-12 uppercase tracking-wider font-bold text-xs shadow-xl/15">
                             Регистрация
@@ -243,19 +278,43 @@ const AuthForm: React.FC = () => {
                         </div>
                         <h1 className="font-bold text-2xl mb-6 text-base-content">Войти</h1>
                         
-                        <input 
-                            type="email" 
-                            placeholder="Email" 
-                            autoComplete="username"
-                            className={`input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-5`} 
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                if(emailError) setEmailError(null);
-                            }}
-                            required
-                        />
-                        <input type="password" placeholder="Пароль" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}className="input input-ghost w-6/12 bg-[#353A3E] shadow-xl/25 rounded-xl mb-10" />
+                        {/* Email */}
+                        <div className="relative w-6/12 mb-5">
+                            <input 
+                                type="email" 
+                                placeholder="Email" 
+                                autoComplete="username"
+                                className="input input-ghost w-full bg-[#353A3E] shadow-xl/25 rounded-xl pr-10" 
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    if (emailError) setEmailError(null);
+                                }}
+                                required
+                            />
+                            {email && (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#BFBFBF]">
+                                    <Mail className="h-4 w-4" />
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Пароль */}
+                        <div className="relative w-6/12 mb-10">
+                            <input
+                                type="password"
+                                placeholder="Пароль"
+                                autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="input input-ghost w-full bg-[#353A3E] shadow-xl/25 rounded-xl pr-10"
+                            />
+                            {password && (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#BFBFBF]">
+                                    <Lock className="h-4 w-4" />
+                                </span>
+                            )}
+                        </div>
                         
                         <a href="#" className="text-xs text-base-content/70 my-4 hover:text-[#BFBFBF]">Забыли пароль?</a>
                         
