@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SendHorizontal, Terminal, User, WifiOff } from "lucide-react"
+import { AuditServiceService } from '../../api/audit/services/AuditServiceService'
 import {
   CommandDialog,
   CommandEmpty,
@@ -114,10 +115,61 @@ export function SideConsole() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isConnectingRef = useRef(false);
 
-  // Загружаем агентов из localStorage
-  useEffect(() => {
-    setAgents(getStoredAgents());
-  }, []);
+useEffect(() => {
+  const loadHistory = async () => {
+    try {
+      if (!OpenAPI.TOKEN) return;
+
+      // 1. Загружаем историю (ленту событий)
+      const response = await AuditServiceService.getFeed(50); 
+      
+      if (response && response.events) {
+        // 2. Превращаем события из API в формат твоих логов
+        const historyLogs: LogEvent[] = response.events.map((ev: any) => ({
+          id: crypto.randomUUID(), // или используй id из базы, если есть
+          timestamp: new Date(ev.timestamp).toLocaleTimeString(),
+          type: 'info',
+          data: {
+            source_agent: {
+              id: ev.source_agent.agent_id,
+              name: ev.source_agent.name,
+              mood: ev.source_agent.mood
+            },
+            data: {
+              message: ev.data.message
+            }
+          }
+        }));
+
+        setEvents(historyLogs);
+
+        // 3. (Бонус) Вытаскиваем уникальных агентов из истории, чтобы наполнить список выбора
+        const uniqueAgentsMap = new Map();
+        response.events.forEach((ev: any) => {
+          const a = ev.source_agent;
+          if (!uniqueAgentsMap.has(a.agent_id)) {
+            uniqueAgentsMap.set(a.agent_id, {
+              id: a.agent_id,
+              name: a.name,
+              role: a.plan?.goal || "Agent" // Берем цель как описание роли
+            });
+          }
+        });
+        
+        const discoveredAgents = Array.from(uniqueAgentsMap.values());
+        if (discoveredAgents.length > 0) {
+          setAgents(discoveredAgents);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка при загрузке истории фида:", error);
+      // Если API упало, хотя бы загрузим агентов из локалстораджа
+      setAgents(getStoredAgents());
+    }
+  };
+
+  loadHistory();
+}, [OpenAPI.TOKEN]); // Перезагружаем историю, если сменился токен
 
   // Функция для добавления системных логов (ошибки, коннекты)
   const addSystemLog = (message: string, type: 'system' | 'error' = 'system') => {
@@ -286,7 +338,7 @@ export function SideConsole() {
                         </span>
                         {event.data.source_agent?.mood?.dominant_emotion && (
                           <span className="text-[9px] opacity-40 italic">
-                            — {event.data.source_agent.mood.dominant_emotion}
+                            — Настроение: {event.data.source_agent.mood.dominant_emotion}
                           </span>
                         )}
                       </div>
