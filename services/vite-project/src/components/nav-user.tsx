@@ -18,13 +18,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useNavigate } from "react-router-dom"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-
+import { LS_KEY } from "@/lib/storage"
 export function NavUser({
   user,
 }: {
@@ -35,7 +36,19 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate();
+  const logout = () => {
+      // 1. Чистим всё по твоему списку
+      localStorage.removeItem('userId');
+      localStorage.removeItem(LS_KEY); 
+      localStorage.removeItem('all_agents_catalog');
+      
+      // 2. Сбрасываем токен в самом сервисе (важно для OpenAPI)
+      // OpenAPI.TOKEN = undefined; 
 
+
+      navigate('/login');
+  };
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -90,7 +103,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>
               <IconLogout />
               Log out
             </DropdownMenuItem>
