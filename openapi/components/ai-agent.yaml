@@ -44,6 +44,26 @@ paths:
         '201':
           description: AI Agent created
 
+  /users/{userId}/agents/relations:
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for agent
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Invalid user ID
+        '404':
+          description: User not found
+
 components:
   schemas:
     AgentTraits:
