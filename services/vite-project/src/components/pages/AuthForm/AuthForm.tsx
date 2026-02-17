@@ -76,7 +76,7 @@ const AuthForm: React.FC = () => {
         
         try {
             if (isSignUp) {
-                await AuthenticationServiceService.postSignup({
+                await AuthenticationServiceService.postAuthSignup({
                 username,
                 email,
                 password,
@@ -84,7 +84,7 @@ const AuthForm: React.FC = () => {
                 setIsLoading(false);
                 alert("Регистрация успешна 🎉");
             } else if (isSignIn) {
-                await AuthenticationServiceService.postSignin({
+                await AuthenticationServiceService.postAuthSignin({
                 email,
                 password,
                 });

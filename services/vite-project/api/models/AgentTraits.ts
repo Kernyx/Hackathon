@@ -6,25 +6,10 @@
  * Черты характера
  */
 export type AgentTraits = {
-    /**
-     * Открытость новому
-     */
     openness?: number;
-    /**
-     * Организованность и дисциплина
-     */
     conscientiousness?: number;
-    /**
-     * Общительность
-     */
     extraversion?: number;
-    /**
-     * Склонность к сотрудничеству
-     */
     agreeableness?: number;
-    /**
-     * Эмоциональная нестабильность
-     */
     neuroticism?: number;
 };
 

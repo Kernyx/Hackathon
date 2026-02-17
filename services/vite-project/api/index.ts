@@ -9,6 +9,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { AgentTraits } from './models/AgentTraits';
 export type { AiAgent } from './models/AiAgent';
+export type { AiAgentDto } from './models/AiAgentDto';
 export { ErrorCode } from './models/ErrorCode';
 export type { ErrorResponse } from './models/ErrorResponse';
 export { PersonalityType } from './models/PersonalityType';

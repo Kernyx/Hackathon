@@ -14,12 +14,12 @@ export class AuthenticationServiceService {
      * @returns any User successfully registered
      * @throws ApiError
      */
-    public static postSignup(
+    public static postAuthSignup(
         requestBody: SignUpDto,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/signup',
+            url: '/auth/signup',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -36,12 +36,12 @@ export class AuthenticationServiceService {
      * @returns any User authenticated
      * @throws ApiError
      */
-    public static postSignin(
+    public static postAuthSignin(
         requestBody: SignInDto,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/signin',
+            url: '/auth/signin',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -57,12 +57,12 @@ export class AuthenticationServiceService {
      * @returns any Access token updated
      * @throws ApiError
      */
-    public static getRefreshToken(
+    public static getAuthRefreshToken(
         refreshToken: string,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/refresh-token',
+            url: '/auth/refresh-token',
             cookies: {
                 'refreshToken': refreshToken,
             },
