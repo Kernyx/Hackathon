@@ -1,4 +1,3 @@
-import { MOCK_AGENTS } from "@/lib/mockData" 
 import AgentGraph from "../AgentGraph"
 import { SideConsole } from "../SideConsole"
 export default function UsersPage() {
@@ -12,7 +11,7 @@ export default function UsersPage() {
         </main>
         
         <div className="hidden xl:flex  shrink-0 bg-card">
-            <SideConsole agents={MOCK_AGENTS} />
+            <SideConsole />
         </div>
         </div>
     );
