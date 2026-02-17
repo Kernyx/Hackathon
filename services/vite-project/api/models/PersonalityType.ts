@@ -5,12 +5,10 @@
 /**
  * Тип личности агента
  */
-export const PersonalityType = {
-    ALTRUIST: 'Альтруист (добрый)',
-    MACHIAVELLIAN: 'Макиавеллист (злой)',
-    REBEL: 'Бунтарь (непредсказуемый)',
-    STOIC: 'Стоик (хладнокровный)',
-    INDIVIDUAL: 'Индивидуальный (пользовательский)',
-} as const;
-
-export type PersonalityType = typeof PersonalityType[keyof typeof PersonalityType];
+export enum PersonalityType {
+    ALTRUIST = 'Альтруист (добрый)',
+    MACHIAVELLIAN = 'Макиавеллист (злой)',
+    REBEL = 'Бунтарь (непредсказуемый)',
+    STOIC = 'Стоик (хладнокровный)',
+    INDIVIDUAL = 'Индивидуальный (пользовательский)',
+}
