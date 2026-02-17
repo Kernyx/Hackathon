@@ -28,5 +28,4 @@ public record AgentCreateDto(
     @NotNull(message = "Traits is required field")
     AiAgentTraits traits,
     String additionalInformation
-) {
-}
+) {}
