@@ -26,21 +26,39 @@ func (h *EventHandler) PostEvents(ctx echo.Context) error {
 		})
 	}
 
+	if body.EventType == nil || *body.EventType == "" {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "event_type is required",
+		})
+	}
+
+	if body.SourceAgent == nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "source_agent is required",
+		})
+	}
+
+	if body.Timestamp == nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "timestamp is required",
+		})
+	}
+
 	select {
 	case h.eventChan <- body:
+
 	default:
 		return ctx.JSON(http.StatusTooManyRequests, map[string]string{
 			"error": "too many events",
 		})
 	}
 
-	return ctx.JSON(http.StatusAccepted, map[string]interface{}{
-		"status": "accepted",
-		"type":   body.EventType,
-		"time":   time.Now(),
-	})
-}
+	now := time.Now()
+	response := map[string]interface{}{
+		"status":    "accepted",
+		"type":      *body.EventType,
+		"timestamp": now.Format(time.RFC3339),
+	}
 
-func generateID() string {
-	return "evt_" + time.Now().Format("20060102150405")
+	return ctx.JSON(http.StatusAccepted, response)
 }
