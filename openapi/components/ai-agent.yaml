@@ -86,7 +86,26 @@ paths:
           description: Bad credentials
         '401':
           description: Unauthorized
-
+  
+  /users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
   /users/{userId}/agents/relations:
     get:
       tags: [AI Agent Service]
