@@ -116,7 +116,7 @@ func main() {
 	ws.GET("/ws/stats", wsHandler.GetStats)
 
 	go func() {
-		if err := e.Start(":8083"); err != nil {
+		if err := e.Start("0.0.0.0:8083"); err != nil {
 			log.Printf("Server stopped: %v", err)
 		}
 	}()
