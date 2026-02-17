@@ -26,7 +26,7 @@ func getEnv(key, defaultValue string) string {
 
 func main() {
 	// RSA публичный ключ
-	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "secrets/public.pem")
+	publicKeyPath := getEnv("JWT_PUBLIC_KEY_PATH", "/app/keys/public.pem")
 	publicKey, err := auth.LoadRSAPublicKey(publicKeyPath)
 	if err != nil {
 		log.Fatalf(" Failed to load RSA public key: %v", err)
