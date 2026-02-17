@@ -9,18 +9,18 @@ from typing import Optional
 from colorama import Fore, Style
 
 from config import (
-    MEMORY_WINDOW, SHORT_TERM_MEMORY,
+    MEMORY_WINDOW,
     EVENT_FOCUS_DURATION, REPETITION_CONSECUTIVE_LIMIT,
     MAX_CONTEXT_TOKENS,
 )
 from models import (
-    PersonalityType, BigFiveTraits, RaceType, RaceModifiers,
+    PersonalityType, BigFiveTraits, RaceType,
     Race, RACES, AgentMood,
 )
 from memory import AgentMemorySystem
 from agent_registry import agent_registry
 from topics import ActionPlan
-from utils import text_similarity, estimate_tokens, estimate_messages_tokens
+from utils import estimate_tokens
 
 
 @dataclass
