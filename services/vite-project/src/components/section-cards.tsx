@@ -3,7 +3,7 @@ import { AgentDrawer, type AgentData } from "./AgentDrawer" // Импортир�
 import { deleteAgentFromStorage, getStoredAgents } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { MouseEvent } from "react"
 import { Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
