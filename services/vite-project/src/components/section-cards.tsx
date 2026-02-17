@@ -3,7 +3,7 @@ import { AgentDrawer, type AgentData } from "./AgentDrawer" // Импортир�
 import { deleteAgentFromStorage, getStoredAgents } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { MouseEvent } from "react"
 import { Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -84,7 +84,7 @@ export function SectionCards() {
       name: "",
       avatarSeed: Math.random().toString(36).substring(7), // Рандомный сид для интереса
       male: true,
-      role: "Analyst",
+      role: "Custom",
       mood: "neutral",
       age: "",
       interests: "",
@@ -121,15 +121,15 @@ export function SectionCards() {
             >
               {/* Слой удаления (Overlay) */}
               {isDeleting && (
-                <div className="absolute inset-0 z-10 flex items-center justify-between px-4 bg-background/80 backdrop-blur-[2px] animate-in fade-in duration-300">
-                  <span className="text-xs font-medium text-destructive">Агент будет удален...</span>
+                <div className="absolute inset-0 z-10 flex items-center justify-between px-4 bg-background/90 backdrop-blur-[2px] animate-in fade-in duration-300">
+                  <span className="text-xs font-medium text-gray-200">Агент будет удален...</span>
                   <Button 
                     variant="outline" 
                     size="sm" 
                     className="h-8 gap-2 border-primary/20 hover:bg-primary/10"
                     onClick={(e) => handleUndo(e, agent.id!)}
                   >
-                    <Undo2 className="h-3 w-3" /> Отмена
+                    <Undo2 className="h-3 w-3 text-gray-200" /> Отмена
                   </Button>
                 </div>
               )}
@@ -166,10 +166,6 @@ export function SectionCards() {
                 )}
               </CardHeader>
               
-              {/* Прогресс-бар удаления (опционально) */}
-              {isDeleting && (
-                <div className="absolute bottom-0 left-0 h-1 bg-destructive animate-shrink-x" style={{ width: '100%' }} />
-              )}
             </Card>
           );
         })}

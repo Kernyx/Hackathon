@@ -4,6 +4,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
 import { getStoredAgents } from '@/lib/storage';
 
+// Небольшой коэффициент масштаба под размер экрана
+const getViewportScale = () => {
+  if (typeof window === "undefined") return 1;
+  const w = window.innerWidth;
+  if (w < 640) return 0.9;        // мобильные — чуть компактнее
+  if (w < 1024) return 1;         // планшеты / малые десктопы
+  if (w < 1440) return 1.1;       // обычные десктопы
+  return 1.2;                     // большие мониторы — чуть крупнее
+};
+
 interface AgentNode extends NodeObject {
   id: string;
   name: string;
@@ -103,10 +113,28 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   useEffect(() => {
     if (graphRef.current && data.nodes.length > 0) {
       setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 100);
+        graphRef.current?.zoomToFit(400, 300);
       }, 500);
     }
   }, [data]);
+
+  // Длина рёбер (разлёт нод) в зависимости от количества агентов
+  useEffect(() => {
+    if (!graphRef.current || data.nodes.length === 0) return;
+    const g = graphRef.current;
+    const nodeCount = data.nodes.length;
+
+    const linkForce = g.d3Force("link") as any;
+    if (linkForce && typeof linkForce.distance === "function") {
+      // Меньше агентов — больше длина рёбер, чтобы картинка была "воздушной".
+      const base = nodeCount <= 3 ? 220 :
+                   nodeCount <= 6 ? 180 :
+                   nodeCount <= 12 ? 140 :
+                   110;
+      linkForce.distance(base);
+      g.d3ReheatSimulation();
+    }
+  }, [data.nodes.length]);
 
   // Загрузка аватаров
   useEffect(() => {
@@ -120,51 +148,58 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   }, [data.nodes]);
 
   const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const size = 6;
+    const viewportScale = getViewportScale();
+    const baseSize = 12 * viewportScale;
+    const size = baseSize;
     const { x, y, name, img } = node;
     
     // Тело узла
     ctx.beginPath();
     ctx.arc(x, y, size, 0, 2 * Math.PI, false);
-    ctx.fillStyle = '#6366f1';
+    ctx.fillStyle = '#4f46e5';
     ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5 / globalScale;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2 / globalScale;
     ctx.stroke();
 
     // Аватар
     if (img && img.complete) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(x, y, size - 0.5, 0, 2 * Math.PI, false);
+      ctx.arc(x, y, size - 1, 0, 2 * Math.PI, false);
       ctx.clip();
       ctx.drawImage(img, x - size, y - size, size * 2, size * 2);
       ctx.restore();
     }
 
     // Текст имени
-    let fontSize = Math.max(10 / globalScale, 4);
+    const fontSize = Math.max((14 * viewportScale) / globalScale, 7);
     ctx.font = `${fontSize}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const opacity = globalScale < 0.2 ? 0 : Math.min(1, (globalScale - 0.2) * 2);
-    ctx.fillStyle = `rgba(224, 224, 224, ${opacity})`;
-
-    if (opacity > 0) {
-      ctx.fillText(name, x, y + size + 2);
-    }
+    ctx.fillStyle = 'rgba(243, 244, 246, 0.95)';
+    ctx.fillText(name, x, y + size + 4 * viewportScale);
   };
 
   const drawLinkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const label = link.message;
-    if (!label || globalScale < 1.2) return;
+    if (!label) return;
+
+    const viewportScale = getViewportScale();
+    const nodeCount = data.nodes.length;
+
+    // Прячем текст, когда граф сильно отдалён, чтобы не было каши.
+    // Но для маленьких графов (<= 4 агента) всегда показываем.
+    if (nodeCount > 4 && globalScale < 0.7) return;
 
     const start = link.source;
     const end = link.target;
     if (typeof start !== 'object' || typeof end !== 'object') return;
 
     // Вычисляем угол и центр
-    const fontSize = 14 / globalScale;
+    const base = nodeCount <= 3 ? 18 : 14;
+    const max = nodeCount <= 3 ? 22 : 18;
+    const fontSize = Math.max(Math.min((base * viewportScale) / globalScale, max), 10);
     const relLink = { x: end.x - start.x, y: end.y - start.y };
     let textAngle = Math.atan2(relLink.y, relLink.x);
     if (textAngle > Math.PI / 2) textAngle = -(Math.PI - textAngle);
@@ -178,7 +213,7 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
     ctx.font = `${fontSize}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = '#818cf8';
+    ctx.fillStyle = 'rgba(129, 140, 248, 0.95)';
     
     // Рисуем текст в 0,0 (так как мы уже сделали translate)
     ctx.fillText(label, 0, -2);
@@ -187,6 +222,7 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
 
   if (!isMounted) return null;
 
+  const nodeCountForLinks = data.nodes.length;
   return (
     <div className="w-full h-full min-h-150 rounded-xl overflow-hidde relative">
       <ForceGraph2D
@@ -204,7 +240,15 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
         
         // Связи и частицы
         linkColor={() => 'rgba(156, 163, 175, 0.2)'}
-        linkDirectionalParticles={0} // 0 по дефолту, только emitMessage их создает
+        linkWidth={(link) => {
+          // Длина ребра управляется через силу "link". Здесь увеличиваем только
+          // визуальную толщину чуть-чуть для малых графов.
+          const count = nodeCountForLinks;
+          if (count <= 3) return 3;
+          if (count <= 7) return 2;
+          return 1.2;
+        }}
+        linkDirectionalParticles={0}
         linkDirectionalParticleWidth={2.5}
         linkDirectionalParticleSpeed={0.01}
         linkDirectionalParticleColor={() => "#818cf8"}
