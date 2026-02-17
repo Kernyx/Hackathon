@@ -77,35 +77,3 @@ func (h *FeedHandler) GetHistory(c echo.Context) error {
 		"source": "postgresql",
 	})
 }
-
-/*
-func (h *FeedHandler) GetEventsByType(c echo.Context) error {
-	eventType := c.Param("type")
-	if eventType == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "event_type is required",
-		})
-	}
-
-	limitStr := c.QueryParam("limit")
-	limit := 100
-	if limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	events, err := h.pgStore.GetRecentEventsByType(eventType, limit)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "failed to get events by type",
-		})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"events": events,
-		"count":  len(events),
-		"type":   eventType,
-	})
-}
-*/
