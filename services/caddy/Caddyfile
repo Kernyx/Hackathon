@@ -48,16 +48,6 @@ besthackaton.duckdns.org {
         }
     }
 
-    handle /api/v1/ml* {
-        reverse_proxy ml-service:8083 {
-            transport http {
-                dial_timeout 10s
-                response_header_timeout 120s
-            }
-            header_up X-Real-IP {remote_host}
-        }
-    }
-
     handle /api/v1/ai-agent* {
         reverse_proxy java-backend:8080 {
             transport http {
@@ -159,28 +149,6 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/ml* → ML Service
-    # ========================================
-    handle /api/v1/ml* {
-        rate_limit {
-            zone ml {
-                key {remote_host}
-                events 30
-                window 1m
-            }
-        }
-
-        reverse_proxy ml-service:8083 {
-            transport http {
-                dial_timeout 10s
-                response_header_timeout 120s
-            }
-
-            header_up X-Real-IP {remote_host}
-        }
-    }
-
-    # ========================================
     # /api/v1/ai-agent* → AI Agent Service (java-backend)
     # ========================================
     handle /api/v1/ai-agent* {
@@ -235,8 +203,7 @@ api.besthackaton.duckdns.org {
             "available_endpoints": [
                 "/api/v1/auth",
                 "/api/v1/ai-agent",
-                "/api/v1/audit",
-                "/api/v1/ml"
+                "/api/v1/audit"
             ]
         }` 404
     }

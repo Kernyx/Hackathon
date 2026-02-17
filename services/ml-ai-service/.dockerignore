@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+*.md
+backups/
+data/chroma_db/
+venv/
+.venv/
+run.bat
+.env

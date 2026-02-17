@@ -139,7 +139,7 @@ SERVICES_MAP=(
     "services/auth-service:auth-service"
     "services/ai-agent-service:java-backend"
     "services/go-backend:go-backend"
-    "services/ml-service:ml-service"
+    "services/ml-ai-service:ml-service"
     "services/caddy:caddy"
 )
 

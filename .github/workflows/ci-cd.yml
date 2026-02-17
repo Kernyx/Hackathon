@@ -74,7 +74,7 @@ jobs:
             go-backend:
               - 'services/go-backend/**'
             ml-service:
-              - 'services/ml-service/**'
+              - 'services/ml-ai-service/**'
             caddy:
               - 'services/caddy/**'
             infra:
@@ -207,7 +207,7 @@ jobs:
     timeout-minutes: 5
     defaults:
       run:
-        working-directory: services/ml-service
+        working-directory: services/ml-ai-service
     steps:
       - uses: actions/checkout@v4
 
@@ -310,7 +310,7 @@ jobs:
             sleep 10
 
             FAILED=0
-            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend hackathon-ml; do
+            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend; do
               STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "not_found")
               if [[ "$STATUS" == "healthy" ]]; then
                 echo "✅ $svc: $STATUS"
@@ -321,6 +321,10 @@ jobs:
                 FAILED=1
               fi
             done
+
+            # ML-сервис — CLI-приложение, может быть exited/running
+            ML_STATE=$(docker inspect --format='{{.State.Status}}' hackathon-ml 2>/dev/null || echo "not_found")
+            echo "ℹ️ hackathon-ml: $ML_STATE (CLI app)"
 
             if [[ "$FAILED" -eq 1 ]]; then
               echo ""
