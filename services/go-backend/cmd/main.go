@@ -77,7 +77,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	eventHandler := handlers.NewEventHandler(eventChan)
-	feedHandler := handlers.NewFeedHandler(redisStore)
+	feedHandler := handlers.NewFeedHandler(redisStore, pgStore)
 	wsHandler := handlers.NewWebSocketHandler(hub)
 
 	api := e.Group("/api/v1/audit")
