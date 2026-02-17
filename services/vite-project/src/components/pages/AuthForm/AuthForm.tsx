@@ -5,6 +5,16 @@ import Logo from './Logo.tsx';
 import LoadingPage from './LoadingPage.tsx';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
+import { saveUserIdToStorage } from '@/lib/storage.ts';
+import { jwtDecode } from "jwt-decode"; // Не забудь установить
+import { OpenAPI } from '../../../../api/core/OpenAPI.ts';
+
+// Типизация того, что лежит внутри твоего JWT
+interface MyJwtPayload {
+  sub: string;   // или 'sub', посмотри что присылает бэк
+  email: string;
+  exp: number;
+}
 
 const ERROR_MESSAGES: Record<string, string> = {
   "A-1000": "Внутренняя ошибка сервера. Попробуйте позже.",
@@ -54,45 +64,47 @@ const AuthForm: React.FC = () => {
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         
-        // Сбрасываем ошибки перед новой проверкой
         setEmailError(null);
         setPasswordError(null);
         setServerError(null);
 
-        // 1. Сначала валидируем email, и если он не ок — показываем ТОЛЬКО его
         if (!/\S+@\S+\.\S+/.test(email)) {
             setEmailError("Введите корректный email");
             setTimeout(() => setEmailError(null), 3000);
             return;
         }
 
-        // 2. Если email ок — проверяем пароль
         if (!regularExpression.test(password)) {
             setPasswordError("Нужно хотя бы 8 символов, одна буква и цифра");
             setTimeout(() => setPasswordError(null), 3000);
             return;
         }
 
-        
+        setIsLoading(true);
+
         try {
-            let response;
+
+            let signinResponse;
 
             if (isSignUp) {
-                response = await AuthenticationServiceService.postAuthSignup({
-                username,
-                email,
-                password,
-                });
-                setIsLoading(false);
-                alert("Регистрация успешна 🎉");
-            } else if (isSignIn) {
-                response = await AuthenticationServiceService.postAuthSignin({
-                email,
-                password,
-                });
-                setIsLoading(false);
-                alert("Вход выполнен 🚀");
+                await AuthenticationServiceService.postAuthSignup({ username, email, password });
+
+                signinResponse = await AuthenticationServiceService.postAuthSignin({ email, password });
+            } else {
+                signinResponse = await AuthenticationServiceService.postAuthSignin({ email, password });
             }
+
+            const token = signinResponse.data;
+            if (token) {
+                    OpenAPI.TOKEN = token;
+                    console.log("Текущий токен в системе:", OpenAPI.HEADERS);
+                    const decoded = jwtDecode<MyJwtPayload>(token);
+                    const actualUserId = decoded.sub;
+
+                    saveUserIdToStorage(actualUserId);
+                    console.log("Юзер авторизован. ID:", actualUserId);
+            }
+            setIsLoading(false);
             navigate('/');
         } catch (e: any) {
             setIsLoading(false);

@@ -73,7 +73,7 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
   const [selectedAvatar, setSelectedAvatar] = React.useState("Alex");
   const [traits, setTraits] = React.useState(PERSONALITY_PRESETS.Custom);
   const [male, setMale] = React.useState(true);
-React.useEffect(() => {
+  React.useEffect(() => {
     if (agent && open) {
       setName(agent.name || "");
       setAge(agent.age || "");
@@ -103,7 +103,7 @@ React.useEffect(() => {
   const handleSaveClick = async () => {
     setIsLoading(true);
     try {
-      // Сначала готовим объект (ID берем существующий или генерим новый)
+      const isEdit = !!agent?.id;
       const newAgentData: AgentData = {
         id: agent?.id || crypto.randomUUID(), // <-- ГАРАНТИРУЕМ НАЛИЧИЕ ID
         name,
@@ -117,7 +117,7 @@ React.useEffect(() => {
       };
 
       // СРАЗУ СОХРАНЯЕМ В ЛОКАЛ СТОРАДЖ
-      saveAgentToStorage(newAgentData);
+      
       console.log("Данные успешно ушли в LS:", newAgentData);
 
       // Пытаемся отправить на сервер (даже если упадет, в LS уже лежит)
@@ -130,16 +130,35 @@ React.useEffect(() => {
         personalityType: role as any,
         additionalInformation: JSON.stringify(traits)
       };
-      
-      await AiAgentServiceService.postAiAgentAgents(requestBody);
-
-      onSaveSuccess(); // Обновляем список в SectionCards
-      onOpenChange(false); // Закрываем
-      alert("Агент сохранен!");
+      if (!isEdit) {
+        if (!agent) {
+          console.error("Ошибка: Попытка редактирования, но данные агента отсутствуют.");
+          return;
+        }
+        const response = await AiAgentServiceService.putAiAgentAgents(agent.id!, requestBody);
+        if (response.status === 200) {
+          saveAgentToStorage(newAgentData);
+        } else {
+          console.log('s0s1');
+        }
+        onSaveSuccess();
+        onOpenChange(false);
+        alert("Агент сохранен!");
+      } else {
+        const response = await AiAgentServiceService.postAiAgentAgents(requestBody);
+        if (response.status === 200) {
+          saveAgentToStorage(newAgentData);
+        } else {
+          console.log('s0s1');
+        }
+        onSaveSuccess();
+        onOpenChange(false);
+        alert("Агент сохранен!");
+      }
 
     } catch (error) {
-      console.error("Сервер недоступен, но локально сохранили:", error);
-      onSaveSuccess(); // ОБЯЗАТЕЛЬНО вызываем и тут, чтобы карточка появилась
+      console.error("Сервер недоступен", error);
+      onSaveSuccess();
       onOpenChange(false);
     } finally {
       setIsLoading(false);

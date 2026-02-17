@@ -9,6 +9,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
+import { OpenAPI } from "../../api/core/OpenAPI"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +19,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useNavigate } from "react-router-dom"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-
+import { LS_KEY } from "@/lib/storage"
 export function NavUser({
   user,
 }: {
@@ -35,7 +37,17 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate();
+  const logout = () => {
+      localStorage.removeItem('userId');
+      localStorage.removeItem(LS_KEY); 
+      localStorage.removeItem('all_agents_catalog');
+      
+      OpenAPI.TOKEN = undefined; 
 
+
+      navigate('/login');
+  };
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -90,7 +102,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>
               <IconLogout />
               Log out
             </DropdownMenuItem>
