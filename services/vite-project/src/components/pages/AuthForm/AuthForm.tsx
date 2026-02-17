@@ -75,8 +75,10 @@ const AuthForm: React.FC = () => {
 
         
         try {
+            let response;
+
             if (isSignUp) {
-                await AuthenticationServiceService.postAuthSignup({
+                response = await AuthenticationServiceService.postAuthSignup({
                 username,
                 email,
                 password,
@@ -84,13 +86,14 @@ const AuthForm: React.FC = () => {
                 setIsLoading(false);
                 alert("Регистрация успешна 🎉");
             } else if (isSignIn) {
-                await AuthenticationServiceService.postAuthSignin({
+                response = await AuthenticationServiceService.postAuthSignin({
                 email,
                 password,
                 });
                 setIsLoading(false);
                 alert("Вход выполнен 🚀");
             }
+            navigate('/');
         } catch (e: any) {
             setIsLoading(false);
             console.log("Full Error Object:", e);

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react"
 import type { MouseEvent } from "react"
 import { Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AiAgentServiceService } from "../../api/services/AiAgentServiceService"
 import {
   Card,
   CardDescription,
@@ -20,7 +21,7 @@ export function SectionCards() {
   const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
   const deleteTimersRef = useRef<Map<string, number>>(new Map());
   const pendingDeleteRef = useRef<Set<string>>(new Set());
-
+    
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
@@ -82,7 +83,7 @@ export function SectionCards() {
     const newAgent: AgentData = {
       id: crypto.randomUUID(), 
       name: "",
-      avatarSeed: Math.random().toString(36).substring(7), // Рандомный сид для интереса
+      avatarSeed: Math.random().toString(36).substring(7), 
       male: true,
       role: "Custom",
       mood: "neutral",
@@ -97,9 +98,7 @@ export function SectionCards() {
           setAgents(getStoredAgents());
           setSelectedAgent(null);
   };
-
-
-
+  
   return (
 
     <>
