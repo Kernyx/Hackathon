@@ -1,0 +1,449 @@
+name: CI/CD Pipeline
+
+# ──────────────────────────────────────────────────────────────
+#  Когда запускается:
+#
+#  push → main        CI проверки + деплой на сервер
+#  pull_request        ТОЛЬКО CI проверки (lint, build) — БЕЗ деплоя.
+#                       Разраб видит ✅/❌ прямо в PR до мержа.
+#  workflow_dispatch    Ручной запуск из GitHub UI (с опцией force_deploy)
+# ──────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: "Полная пересборка всех сервисов"
+        type: boolean
+        default: false
+
+# ──────────────────────────────────────────────────────────────
+#  ОЧЕРЕДЬ, НЕ ОТМЕНА
+#
+#  cancel-in-progress: false — если Dev A деплоит, а Dev B
+#  пушит, пайплайн B встаёт В ОЧЕРЕДЬ и запустится после A.
+#  GitHub хранит макс. 1 pending run — если C пушит пока B
+#  ждёт, B отменяется (он ещё не начинался), C ждёт.
+#
+#  Результат: A доходит до конца (деплой не прерывается!),
+#  затем деплоится C (уже с кодом A+B+C).
+# ──────────────────────────────────────────────────────────────
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  DEPLOY_PATH: /opt/hackathon
+
+jobs:
+  # ════════════════════════════════════════════
+  # 1. DETECT — какие сервисы изменились
+  # ════════════════════════════════════════════
+  detect-changes:
+    name: "🔍 Detect Changes"
+    runs-on: ubuntu-latest
+    outputs:
+      frontend:      ${{ steps.changes.outputs.frontend }}
+      auth-service:  ${{ steps.changes.outputs.auth-service }}
+      java-backend:  ${{ steps.changes.outputs.java-backend }}
+      go-backend:    ${{ steps.changes.outputs.go-backend }}
+      ml-service:    ${{ steps.changes.outputs.ml-service }}
+      caddy:         ${{ steps.changes.outputs.caddy }}
+      infra:         ${{ steps.changes.outputs.infra }}
+      any-service:   ${{ steps.any.outputs.any-service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'services/vite-project/**'
+            auth-service:
+              - 'services/auth-service/**'
+            java-backend:
+              - 'services/ai-agent-service/**'
+            go-backend:
+              - 'services/go-backend/**'
+            ml-service:
+              - 'services/ml-ai-service/**'
+            caddy:
+              - 'services/caddy/**'
+            infra:
+              - 'docker-compose.yml'
+              - 'scripts/**'
+              - '.env_example'
+
+      - name: Determine if any service changed
+        id: any
+        run: |
+          if [[ "${{ steps.changes.outputs.frontend }}" == "true" || \
+                "${{ steps.changes.outputs.auth-service }}" == "true" || \
+                "${{ steps.changes.outputs.java-backend }}" == "true" || \
+                "${{ steps.changes.outputs.go-backend }}" == "true" || \
+                "${{ steps.changes.outputs.ml-service }}" == "true" || \
+                "${{ steps.changes.outputs.caddy }}" == "true" || \
+                "${{ steps.changes.outputs.infra }}" == "true" || \
+                "${{ github.event.inputs.force_deploy }}" == "true" ]]; then
+            echo "any-service=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any-service=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ════════════════════════════════════════════
+  # 2. LINT & BUILD — параллельная проверка
+  #    Запускается и на push, и на PR.
+  #    На PR разраб видит галочки ✅/❌ до мержа.
+  # ════════════════════════════════════════════
+
+  # ── Frontend ──
+  lint-frontend:
+    name: "🖥️ Frontend — Lint & Build"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/vite-project
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: services/vite-project/package-lock.json
+
+      - run: npm ci --prefer-offline
+      - run: npx tsc -b --noEmit
+        name: TypeScript Check
+      - run: npm run lint
+        name: ESLint
+      - run: npm run build
+        name: Vite Build
+
+  # ── Go Backend ──
+  lint-go:
+    name: "🐹 Go Backend — Lint & Build"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.go-backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/go-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/go-backend/go.mod
+          cache-dependency-path: services/go-backend/go.sum
+
+      - run: go vet ./...
+        name: Go Vet
+      - run: go build -o /dev/null ./cmd/...
+        name: Go Build
+
+  # ── Auth Service (Java) ──
+  lint-auth:
+    name: "🔐 Auth Service — Build"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.auth-service == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/auth-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - run: ./mvnw compile -B -q -DskipTests -Dprop.skipLoadProperties=true
+        name: Maven Compile
+
+  # ── AI Agent Service (Java) ──
+  lint-java-backend:
+    name: "🤖 AI Agent — Build"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.java-backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/ai-agent-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - run: ./mvnw compile -B -q -DskipTests -Dprop.skipLoadProperties=true
+        name: Maven Compile
+
+  # ── ML Service (Python) ──
+  lint-ml:
+    name: "🧠 ML Service — Lint"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ml-service == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: services/ml-ai-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -q ruff
+      - run: ruff check .
+        name: Ruff Lint
+        continue-on-error: true
+
+  # ── Caddy config ──
+  validate-caddy:
+    name: "🌐 Caddy — Validate Config"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.caddy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build custom Caddy (with rate_limit plugin)
+        run: |
+          docker build -t caddy-custom -f services/caddy/Dockerfile services/caddy/
+
+      - name: Validate Caddyfile syntax
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy-custom \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  # ════════════════════════════════════════════
+  # 3. DEPLOY — только push в main + все проверки ОК
+  #
+  #    НЕ деплоит когда:
+  #    • pull_request — PR только проверяется, не деплоится
+  #    • push НЕ в main — другие ветки не деплоятся
+  #    • ни один сервис не изменился
+  #    • хотя бы одна проверка упала (failure)
+  # ════════════════════════════════════════════
+  deploy:
+    name: "🚀 Deploy to Production"
+    needs:
+      - detect-changes
+      - lint-frontend
+      - lint-go
+      - lint-auth
+      - lint-java-backend
+      - lint-ml
+      - validate-caddy
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.detect-changes.outputs.any-service == 'true' || github.event.inputs.force_deploy == 'true') &&
+      !contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://besthackaton.duckdns.org
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: hackathon
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd /opt/hackathon
+
+            echo "── Git pull ──"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "── Deploy ──"
+            FORCE_DEPLOY=${{ github.event.inputs.force_deploy == 'true' && '1' || '0' }}
+            export FORCE_DEPLOY
+            bash scripts/deploy.sh
+
+      - name: Verify deployment health
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: hackathon
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+
+            echo "── Health Check ──"
+            sleep 10
+
+            FAILED=0
+            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "not_found")
+              if [[ "$STATUS" == "healthy" ]]; then
+                echo "✅ $svc: $STATUS"
+              elif [[ "$STATUS" == "starting" ]]; then
+                echo "⏳ $svc: $STATUS (still starting)"
+              else
+                echo "❌ $svc: $STATUS"
+                FAILED=1
+              fi
+            done
+
+            # ML-сервис — CLI-приложение, может быть exited/running
+            ML_STATE=$(docker inspect --format='{{.State.Status}}' hackathon-ml 2>/dev/null || echo "not_found")
+            echo "ℹ️ hackathon-ml: $ML_STATE (CLI app)"
+
+            if [[ "$FAILED" -eq 1 ]]; then
+              echo ""
+              echo "⚠️ Some services are unhealthy. Last logs:"
+              docker compose --profile all logs --tail=15 2>&1 | tail -40
+              exit 1
+            fi
+
+            echo ""
+            echo "🎉 All services healthy!"
+
+  # ════════════════════════════════════════════
+  # 4. NOTIFY — уведомления команды (Telegram)
+  #    Добавьте секреты TELEGRAM_BOT_TOKEN и
+  #    TELEGRAM_CHAT_ID чтобы включить.
+  # ════════════════════════════════════════════
+  notify:
+    name: "📢 Notify Team"
+    needs: [detect-changes, deploy]
+    if: always() && needs.deploy.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        continue-on-error: true
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [[ -z "$TELEGRAM_TOKEN" || -z "$TELEGRAM_CHAT" ]]; then
+            echo "ℹ️ Telegram не настроен — пропускаем"
+            exit 0
+          fi
+
+          if [[ "${{ needs.deploy.result }}" == "success" ]]; then
+            ICON="✅"
+            STATUS="Деплой успешен"
+          else
+            ICON="❌"
+            STATUS="Деплой упал"
+          fi
+
+          MSG="${ICON} *${STATUS}*
+          📦 Коммит: \`${{ github.sha }}\`
+          👤 Автор: ${{ github.actor }}
+          📝 ${{ github.event.head_commit.message || 'manual dispatch' }}
+          🔗 [Открыть пайплайн](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -d chat_id="$TELEGRAM_CHAT" \
+            -d parse_mode="Markdown" \
+            -d text="$MSG" \
+            -d disable_web_page_preview=true
+
+  # ════════════════════════════════════════════
+  # 5. SUMMARY — красивая таблица в GitHub UI
+  # ════════════════════════════════════════════
+  summary:
+    name: "📋 Pipeline Summary"
+    needs:
+      - detect-changes
+      - lint-frontend
+      - lint-go
+      - lint-auth
+      - lint-java-backend
+      - lint-ml
+      - validate-caddy
+      - deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🏗️ CI/CD Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Changed | Check | Deploy |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          declare -A SVC_NAMES=(
+            [frontend]="🖥️ Frontend"
+            [auth-service]="🔐 Auth"
+            [java-backend]="🤖 AI Agent"
+            [go-backend]="🐹 Go Backend"
+            [ml-service]="🧠 ML Service"
+            [caddy]="🌐 Caddy"
+          )
+
+          declare -A CHECK_JOBS=(
+            [frontend]="${{ needs.lint-frontend.result }}"
+            [auth-service]="${{ needs.lint-auth.result }}"
+            [java-backend]="${{ needs.lint-java-backend.result }}"
+            [go-backend]="${{ needs.lint-go.result }}"
+            [ml-service]="${{ needs.lint-ml.result }}"
+            [caddy]="${{ needs.validate-caddy.result }}"
+          )
+
+          deploy_status="${{ needs.deploy.result }}"
+          [[ "$deploy_status" == "success" ]] && deploy_icon="✅" || deploy_icon="—"
+
+          for svc in frontend auth-service java-backend go-backend ml-service caddy; do
+            changed="—"
+            check="—"
+
+            case "$svc" in
+              frontend)      [[ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]] && changed="✅" ;;
+              auth-service)  [[ "${{ needs.detect-changes.outputs.auth-service }}" == "true" ]] && changed="✅" ;;
+              java-backend)  [[ "${{ needs.detect-changes.outputs.java-backend }}" == "true" ]] && changed="✅" ;;
+              go-backend)    [[ "${{ needs.detect-changes.outputs.go-backend }}" == "true" ]] && changed="✅" ;;
+              ml-service)    [[ "${{ needs.detect-changes.outputs.ml-service }}" == "true" ]] && changed="✅" ;;
+              caddy)         [[ "${{ needs.detect-changes.outputs.caddy }}" == "true" ]] && changed="✅" ;;
+            esac
+
+            result="${CHECK_JOBS[$svc]}"
+            if [[ "$result" == "success" ]]; then check="✅"
+            elif [[ "$result" == "failure" ]]; then check="❌"
+            elif [[ "$result" == "skipped" ]]; then check="⏭️"
+            fi
+
+            echo "| ${SVC_NAMES[$svc]} | $changed | $check | $deploy_icon |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy:** \`$deploy_status\` | **Trigger:** \`${{ github.event_name }}\` | **Ref:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
