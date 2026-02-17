@@ -11,7 +11,7 @@ import { OpenAPI } from '../../../../api/core/OpenAPI.ts';
 
 // Типизация того, что лежит внутри твоего JWT
 interface MyJwtPayload {
-  id: string;   // или 'sub', посмотри что присылает бэк
+  sub: string;   // или 'sub', посмотри что присылает бэк
   email: string;
   exp: number;
 }
@@ -80,7 +80,8 @@ const AuthForm: React.FC = () => {
             return;
         }
 
-        
+        setIsLoading(true);
+
         try {
 
             let signinResponse;
@@ -97,10 +98,9 @@ const AuthForm: React.FC = () => {
             if (token) {
                     OpenAPI.TOKEN = token;
                     const decoded = jwtDecode<MyJwtPayload>(token);
-                    const actualUserId = decoded.id;
+                    const actualUserId = decoded.sub;
 
                     saveUserIdToStorage(actualUserId);
-                    localStorage.setItem('accessToken', token); 
                     console.log("Юзер авторизован. ID:", actualUserId);
             }
             setIsLoading(false);
