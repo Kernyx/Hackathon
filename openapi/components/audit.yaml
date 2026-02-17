@@ -81,9 +81,6 @@ components:
     
     SourceAgent:
       type: object
-      required:
-        - agent_id
-        - name
       properties:
         agent_id:
           type: string
@@ -106,8 +103,6 @@ components:
     
     TargetAgent:
       type: object
-      required:
-        - agent_id
       properties:
         agent_id:
           type: string
@@ -275,10 +270,6 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - event_type
-                - source_agent
-                - timestamp
               properties:
                 event_type:
                   type: string

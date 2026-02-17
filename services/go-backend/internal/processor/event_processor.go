@@ -68,13 +68,14 @@ func (p *EventProcessor) processEvent(req openapi.PostEventsJSONRequestBody) err
 	ts := now.Unix()
 
 	event := &openapi.Event{
-		EventType:    req.EventType,
-		SourceAgent:  req.SourceAgent,
-		TargetAgents: req.TargetAgents,
-		Timestamp:    req.Timestamp,
-		Data:         convertData(req.Data),
-		ProcessedAt:  &now,
-		ProcessedTs:  &ts,
+		EventType:         req.EventType,
+		SourceAgent:       req.SourceAgent,
+		TargetAgents:      req.TargetAgents,
+		Timestamp:         req.Timestamp,
+		Data:              req.Data,
+		SimulationContext: req.SimulationContext,
+		ProcessedAt:       &now,
+		ProcessedTs:       &ts,
 	}
 
 	if p.redisStore != nil {
@@ -89,7 +90,11 @@ func (p *EventProcessor) processEvent(req openapi.PostEventsJSONRequestBody) err
 		}
 	}
 
-	log.Printf("Event processed: type=%s", *event.EventType)
+	eventTypeStr := "unknown"
+	if req.EventType != nil {
+		eventTypeStr = *req.EventType
+	}
+	log.Printf("Event processed: type=%s", eventTypeStr)
 	return nil
 }
 
