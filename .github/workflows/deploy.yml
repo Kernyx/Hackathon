@@ -49,7 +49,7 @@ jobs:
             sleep 10
 
             FAILED=0
-            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend; do
+            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend hackathon-ml; do
               STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "not_found")
               if [[ "$STATUS" == "healthy" ]]; then
                 echo "✅ $svc: $STATUS"
@@ -60,9 +60,6 @@ jobs:
                 FAILED=1
               fi
             done
-
-            ML_STATE=$(docker inspect --format='{{.State.Status}}' hackathon-ml 2>/dev/null || echo "not_found")
-            echo "ℹ️ hackathon-ml: $ML_STATE"
 
             if [[ "$FAILED" -eq 1 ]]; then
               docker compose --profile all logs --tail=15 2>&1 | tail -40
