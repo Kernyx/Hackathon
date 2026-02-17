@@ -65,13 +65,11 @@ func (p *PostgresStore) Close() error {
 }
 
 func (p *PostgresStore) Ping() error {
-	err := p.db.AutoMigrate(&Event{})
+	sqlDB, err := p.db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to migration: %w", err)
+		return err
 	}
-
-	log.Printf("Database migration completed")
-	return nil
+	return sqlDB.Ping()
 }
 
 func (p *PostgresStore) RunMigrations() error {
