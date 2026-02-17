@@ -130,7 +130,11 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
         personalityType: role as any,
         additionalInformation: JSON.stringify(traits)
       };
-      if (isEdit) {
+      if (!isEdit) {
+        if (!agent) {
+          console.error("Ошибка: Попытка редактирования, но данные агента отсутствуют.");
+          return;
+        }
         const response = await AiAgentServiceService.putAiAgentAgents(agent.id!, requestBody);
         if (response.status === 200) {
           saveAgentToStorage(newAgentData);
