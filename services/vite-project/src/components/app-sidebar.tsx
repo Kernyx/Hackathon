@@ -2,13 +2,12 @@ import * as React from "react"
 import { useLocation } from "react-router-dom"
 import {
   IconCamera,
-  IconDashboard,
+  IconBlocks,
   IconDatabase,
   IconFileAi,
   IconFileDescription,
   IconFileWord,
   IconReport,
-  IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
 import Logo from "./Logo.tsx"
@@ -31,14 +30,14 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
+      title: "Agents",
       url: "/",
-      icon: IconDashboard,
+      icon: IconUsers,
     },
     {
-      title: "Users",
+      title: "Relations",
       url: "/users",
-      icon: IconUsers,
+      icon: IconBlocks,
     },
   ],
   navClouds: [
@@ -90,11 +89,6 @@ const data = {
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
   ],
   documents: [
     {
@@ -148,7 +142,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           >
             <SidebarHeader className="border-b p-0 gap-0">
               <a href="#" className="flex items-center p-0">
-                <Logo className="size-20! shrink-0 ml-0" />
+              <Logo className="w-20 h-20 shrink-0 -ml-2" />
+              <span className="text-base font-semibold -ml-2">MindColony</span>
               </a>
             </SidebarHeader>
             
@@ -172,9 +167,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         className="w-65 h-full"
         {...props}
       >
-        <SidebarHeader className="border-b p-0 gap-0">
-          <a href="#" className="flex items-center p-0">
-            <Logo className="size-20! shrink-0 ml-0" />
+        <SidebarHeader className="border-b p-0! gap-0">
+          <a href="#" className="flex items-center p-0!">
+            <Logo className="w-20 h-20 shrink-0 -ml-2" />
+            <span className="text-base font-semibold -ml-2">MindColony</span>
           </a>
         </SidebarHeader>
         
