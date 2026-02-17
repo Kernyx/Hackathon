@@ -95,6 +95,13 @@ func main() {
 	feedHandler := handlers.NewFeedHandler(redisStore, pgStore)
 	wsHandler := handlers.NewWebSocketHandler(hub)
 
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(200, map[string]interface{}{
+			"status":     "ok",
+			"ws_clients": hub.ClientCount(),
+		})
+	})
+
 	api := e.Group("/api/v1/audit")
 	api.Use(jwtMiddleware)
 
