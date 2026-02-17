@@ -1,11 +1,17 @@
 import type { AgentData } from "../components/AgentDrawer";
 
 export const LS_KEY = "ai_agents_data";
-
+export const USER_ID_KEY = "userId";
 export const getStoredAgents = (): AgentData[] => {
   if (typeof window === "undefined") return [];
+
+  const currentUserId = localStorage.getItem(USER_ID_KEY);
+
+  if (!currentUserId) return [];
+
   const data = localStorage.getItem(LS_KEY);
-  return data ? JSON.parse(data) : [];
+  const allAgents = data ? JSON.parse(data) : [];
+  return allAgents.filter((agent: any) => agent.ownerId === currentUserId);
 };
 
 export const saveAgentToStorage = (agent: any) => {
@@ -14,6 +20,9 @@ export const saveAgentToStorage = (agent: any) => {
     const existingData = localStorage.getItem(LS_KEY);
     const agents = existingData ? JSON.parse(existingData) : [];
     
+    if (!agent.ownerId) {
+        agent.ownerId = localStorage.getItem(USER_ID_KEY);
+    }
     // 2. Проверяем, нет ли уже агента с таким ID, чтобы не плодить дубликаты
     const index = agents.findIndex((a: any) => a.id === agent.id);
     
@@ -25,9 +34,9 @@ export const saveAgentToStorage = (agent: any) => {
     
     // 3. Сохраняем обратно в строку
     localStorage.setItem(LS_KEY, JSON.stringify(agents));
-    console.log("✅ Записано в LocalStorage успешно!");
+    console.log("Записано в LocalStorage успешно!");
   } catch (e) {
-    console.error("❌ Ошибка записи в LS:", e);
+    console.error("Ошибка записи в LS:", e);
   }
 };
 
@@ -40,6 +49,6 @@ export const deleteAgentFromStorage = (id: string) => {
     const next = agents.filter((a) => a?.id !== id);
     localStorage.setItem(LS_KEY, JSON.stringify(next));
   } catch (e) {
-    console.error("❌ Ошибка удаления из LS:", e);
+    console.error("Ошибка удаления из LS:", e);
   }
 };
