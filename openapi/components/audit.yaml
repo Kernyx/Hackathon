@@ -81,6 +81,9 @@ components:
     
     SourceAgent:
       type: object
+      required:
+        - agent_id
+        - name
       properties:
         agent_id:
           type: string
@@ -103,6 +106,8 @@ components:
     
     TargetAgent:
       type: object
+      required:
+        - agent_id
       properties:
         agent_id:
           type: string
@@ -270,6 +275,10 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - event_type
+                - source_agent
+                - timestamp
               properties:
                 event_type:
                   type: string
@@ -350,7 +359,7 @@ paths:
     get:
       tags: [Audit Service]
       summary: Get historical events (from PostgreSQL)
-      description: Получить исторические события из PostgreSQL
+      description: Получить события по агенту из PostgreSQL
       parameters:
         - name: limit
           in: query
@@ -376,6 +385,111 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /agents/{agent_id}/events:
+    get:
+      tags: [Audit Service]
+      summary: Get events by agent ID
+      description: Получить события конкретного агента
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: ID агента
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Количество событий (максимум 500)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Agent events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  count:
+                    type: integer
+                    description: Количество возвращенных событий
+                  limit:
+                    type: integer
+                    description: Запрошенный лимит
+                  agent_id:
+                    type: string
+                    description: ID агента
+                  source:
+                    type: string
+                    examples:
+                      - "postgresql"
+        '400':
+          description: Invalid agent_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agents/{agent_id}/stats:
+    get:
+      tags: [Audit Service]
+      summary: Get agent statistics
+      description: Получить статистику по агенту
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: ID агента
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_id:
+                    type: string
+                  total_events:
+                    type: integer
+                  messages_sent:
+                    type: integer
+                  last_activity:
+                    type: string
+                    format: date-time
+                  event_types:
+                    type: object
+                    additionalProperties:
+                      type: integer
+        '400':
+          description: Invalid agent_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
           content:
