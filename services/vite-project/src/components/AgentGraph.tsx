@@ -1,8 +1,28 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
-import { useAgentStream, type AgentLink, type AgentNode } from '@/lib/agent-stream/AgentStreamContext';
+import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
+import { getStoredAgents } from '@/lib/storage';
+
+interface AgentNode extends NodeObject {
+  id: string;
+  name: string;
+  avatarSeed?: string;
+  role?: string;
+  img?: HTMLImageElement;
+  val?: number;
+}
+
+interface AgentLink {
+  source: string | AgentNode;
+  target: string | AgentNode;
+  message?: string;
+}
+
+interface GraphData {
+  nodes: AgentNode[];
+  links: AgentLink[];
+}
 
 interface AgentGraphProps {
   onNodeSelect?: (node: AgentNode) => void;
@@ -10,7 +30,7 @@ interface AgentGraphProps {
 
 const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   const graphRef = useRef<ForceGraphMethods<AgentNode, AgentLink>>(undefined);
-  const { graph: data, selectedAgentId, hoveredAgentId, setSelectedAgentId, setHoveredAgentId, lastPulse } = useAgentStream();
+  const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
   const [isMounted, setIsMounted] = useState(false);
 
   // Функция "выстрела" сообщением
@@ -25,7 +45,7 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
 
     if (link) {
       // Ставим временный текст для визуала
-      link.message = link.message || "DATA PACKET";
+      link.message = "DATA PACKET"; 
       graphRef.current.emitParticle(link);
       
       // Стираем текст через 2 секунды, чтобы не засирать экран
@@ -33,14 +53,51 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
     }
   };
 
-  // Mounted guard for ForceGraph (canvas) in SSR-like setups
-  useEffect(() => setIsMounted(true), []);
-
-  // Pulse particles on real incoming events
+  // Интервал рандомных сообщений
   useEffect(() => {
-    if (!lastPulse) return;
-    emitMessage(lastPulse.sourceId, lastPulse.targetId);
-  }, [lastPulse]);
+    const interval = setInterval(() => {
+      if (data.links.length > 0) {
+        const randomLink = data.links[Math.floor(Math.random() * data.links.length)];
+        const s = randomLink.source as AgentNode;
+        const t = randomLink.target as AgentNode;
+
+        if (s?.id && t?.id) {
+          emitMessage(s.id, t.id);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [data]);
+
+  // Загрузка данных
+  useEffect(() => {
+    setIsMounted(true);
+    const agents = getStoredAgents();
+    if (agents.length === 0) return;
+
+    const nodes: AgentNode[] = agents
+      .filter(agent => agent.id)
+      .map(agent => ({
+        id: agent.id!,
+        name: agent.name || "Unknown",
+        avatarSeed: agent.avatarSeed || agent.name,
+        role: agent.role || "Agent",
+        val: 1
+      }));
+
+    const links: AgentLink[] = [];
+    if (nodes.length > 1) {
+      for (let i = 0; i < nodes.length; i++) {
+        const targetIndex = (i + 1) % nodes.length;
+        links.push({
+          source: nodes[i].id,
+          target: nodes[targetIndex].id,
+          message: ""
+        });
+      }
+    }
+    setData({ nodes, links });
+  }, []);
 
   // Авто-зум
   useEffect(() => {
@@ -63,18 +120,16 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   }, [data.nodes]);
 
   const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const isSelected = selectedAgentId === node.id;
-    const isHovered = hoveredAgentId === node.id;
-    const size = isSelected ? 8 : isHovered ? 7 : 6;
+    const size = 6;
     const { x, y, name, img } = node;
     
     // Тело узла
     ctx.beginPath();
     ctx.arc(x, y, size, 0, 2 * Math.PI, false);
-    ctx.fillStyle = isSelected ? '#a78bfa' : isHovered ? '#818cf8' : '#6366f1';
+    ctx.fillStyle = '#6366f1';
     ctx.fill();
-    ctx.strokeStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = (isSelected ? 2.4 : 1.5) / globalScale;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5 / globalScale;
     ctx.stroke();
 
     // Аватар
@@ -148,24 +203,13 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
         cooldownTicks={100}
         
         // Связи и частицы
-        linkColor={(l) => {
-          const sId = typeof l.source === "object" ? (l.source as any).id : l.source;
-          const tId = typeof l.target === "object" ? (l.target as any).id : l.target;
-          if (selectedAgentId && (sId === selectedAgentId || tId === selectedAgentId)) return "rgba(167, 139, 250, 0.55)";
-          if (hoveredAgentId && (sId === hoveredAgentId || tId === hoveredAgentId)) return "rgba(129, 140, 248, 0.45)";
-          return "rgba(156, 163, 175, 0.2)";
-        }}
+        linkColor={() => 'rgba(156, 163, 175, 0.2)'}
         linkDirectionalParticles={0} // 0 по дефолту, только emitMessage их создает
         linkDirectionalParticleWidth={2.5}
         linkDirectionalParticleSpeed={0.01}
         linkDirectionalParticleColor={() => "#818cf8"}
 
-        onNodeHover={(node) => setHoveredAgentId(node ? (node as any).id : null)}
-        onNodeClick={(node) => {
-          const n = node as AgentNode;
-          setSelectedAgentId(n?.id ?? null);
-          onNodeSelect?.(n);
-        }}
+        onNodeClick={(node) => onNodeSelect?.(node as AgentNode)}
       />
     </div>
   );
