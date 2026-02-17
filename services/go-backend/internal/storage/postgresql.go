@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"audite-service/internal/api/openapi"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -82,31 +83,21 @@ func (p *PostgresStore) RunMigrations() error {
 	return nil
 }
 
-func (p *PostgresStore) SaveEvent(eventMap map[string]interface{}) error {
-	event := p.mapToEvent(eventMap)
-	result := p.db.Create(event)
-	return result.Error
+func (p *PostgresStore) SaveEvent(ev *openapi.Event) error {
+	return p.db.Create(mapOpenAPIToEvent(ev)).Error
 }
 
-func (p *PostgresStore) BatchSaveEvents(eventMaps []map[string]interface{}) error {
-	if len(eventMaps) == 0 {
+func (p *PostgresStore) BatchSaveEvents(events []*openapi.Event) error {
+	if len(events) == 0 {
 		return nil
 	}
 
-	events := make([]*Event, 0, len(eventMaps))
-	for _, eventMap := range eventMaps {
-		log.Printf("EVENT MAP: %#v", eventMap)
-
-		events = append(events, p.mapToEvent(eventMap))
+	dbEvents := make([]*Event, 0, len(events))
+	for _, e := range events {
+		dbEvents = append(dbEvents, mapOpenAPIToEvent(e))
 	}
 
-	result := p.db.CreateInBatches(events, 100)
-	if result.Error != nil {
-		return result.Error
-	}
-
-	log.Printf("Batch save %d events to PostgreSQL", result.RowsAffected)
-	return nil
+	return p.db.CreateInBatches(dbEvents, 100).Error
 }
 
 func (p *PostgresStore) GetRecentEvents(limit int) ([]map[string]interface{}, error) {
@@ -156,42 +147,52 @@ func (p *PostgresStore) GetRecentEvents(limit int) ([]map[string]interface{}, er
 	return eventMaps, nil
 }
 
-func (p *PostgresStore) mapToEvent(eventMap map[string]interface{}) *Event {
-	event := &Event{
+func mapOpenAPIToEvent(src *openapi.Event) *Event {
+	e := &Event{
 		ProcessedAt: time.Now().UTC(),
 	}
 
-	if et, ok := eventMap["event_type"].(string); ok {
-		event.EventType = et
+	if src.EventType != nil {
+		e.EventType = *src.EventType
 	}
 
-	if sourceAgent, ok := eventMap["source_agent"].(map[string]interface{}); ok {
-		if id, ok := sourceAgent["id"].(string); ok {
-			event.SourceAgentID = &id
+	if src.SourceAgent != nil {
+		id := src.SourceAgent.Id.String()
+		username := src.SourceAgent.Username
+
+		e.SourceAgentID = &id
+		e.SourceAgentUsername = &username
+	}
+
+	if src.Timestamp != nil {
+		t := src.Timestamp.UTC()
+		e.Timestamp = &t
+	}
+
+	if src.Data != nil {
+
+		if src.Data.Message != nil {
+			e.Message = src.Data.Message
 		}
-		if username, ok := sourceAgent["username"].(string); ok {
-			event.SourceAgentUsername = &username
+
+		if src.Data.Mood != nil {
+			e.Mood = src.Data.Mood
+		}
+
+		if b, err := json.Marshal(src.Data); err == nil {
+			e.Data = b
 		}
 	}
 
-	if ts, ok := eventMap["timestamp"].(string); ok {
-		t, err := time.Parse(time.RFC3339, ts)
-		if err == nil {
-			event.Timestamp = &t
+	if src.TargetAgents != nil {
+		if b, err := json.Marshal(src.TargetAgents); err == nil {
+			e.TargetAgents = b
 		}
 	}
 
-	if dataMap, ok := eventMap["data"].(map[string]interface{}); ok {
-		if msg, ok := dataMap["message"].(string); ok {
-			event.Message = &msg
-		}
-		if mood, ok := dataMap["mood"].(string); ok {
-			event.Mood = &mood
-		}
-
-		dataJSON, _ := json.Marshal(dataMap)
-		event.Data = dataJSON
+	if src.ProcessedAt != nil {
+		e.ProcessedAt = src.ProcessedAt.UTC()
 	}
 
-	return event
+	return e
 }

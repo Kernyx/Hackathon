@@ -16,7 +16,7 @@ type EventProcessor struct {
 	pgStore    *storage.PostgresStore
 	hub        *websocket.Hub
 
-	batchBuffer []map[string]interface{}
+	batchBuffer []*openapi.Event
 	batchMutex  sync.Mutex
 	batchTicker *time.Ticker
 }
@@ -33,7 +33,7 @@ func NewEventProcessor(
 		redisStore:  redisStore,
 		pgStore:     pgStore,
 		hub:         hub,
-		batchBuffer: make([]map[string]interface{}, 0, 100),
+		batchBuffer: make([]*openapi.Event, 0, 100),
 		batchTicker: time.NewTicker(1 * time.Second),
 	}
 }
@@ -63,32 +63,29 @@ func (p *EventProcessor) Stop() {
 	log.Println("Event processor and batch inserter stopped")
 }
 
-func (p *EventProcessor) processEvent(event openapi.PostEventsJSONRequestBody) error {
-	enrichedEvent := map[string]interface{}{
-		"event_type":    event.EventType,
-		"source_agent":  event.SourceAgent,
-		"target_agents": event.TargetAgents,
-		"timestamp":     event.Timestamp,
-		"data":          event.Data,
-		"processed_at":  time.Now().Format(time.RFC3339),
-		"processed_ts":  time.Now().Unix(),
+func (p *EventProcessor) processEvent(req openapi.PostEventsJSONRequestBody) error {
+	now := time.Now().UTC()
+	ts := now.Unix()
+
+	event := &openapi.Event{
+		EventType:    req.EventType,
+		SourceAgent:  req.SourceAgent,
+		TargetAgents: req.TargetAgents,
+		Timestamp:    req.Timestamp,
+		Data:         convertData(req.Data),
+		ProcessedAt:  &now,
+		ProcessedTs:  &ts,
 	}
 
 	if p.redisStore != nil {
-		if err := p.redisStore.SaveRecent(enrichedEvent); err != nil {
-			log.Printf("failed to save to Redis: %v", err)
-		}
+		_ = p.redisStore.SaveRecent(event)
 	}
 
-	p.addToBatch(enrichedEvent)
+	p.addToBatch(event)
 
 	if p.hub != nil && p.hub.ClientCount() > 0 {
-		messageBytes, err := json.Marshal(enrichedEvent)
-		if err != nil {
-			log.Printf("Failed to marshal event for WebSocket: %v", err)
-		} else {
-			p.hub.Broadcast(messageBytes)
-			log.Printf("Event broadcasted to WebSocket clients")
+		if b, err := json.Marshal(event); err == nil {
+			p.hub.Broadcast(b)
 		}
 	}
 
@@ -96,7 +93,7 @@ func (p *EventProcessor) processEvent(event openapi.PostEventsJSONRequestBody) e
 	return nil
 }
 
-func (p *EventProcessor) addToBatch(event map[string]interface{}) {
+func (p *EventProcessor) addToBatch(event *openapi.Event) {
 	p.batchMutex.Lock()
 	defer p.batchMutex.Unlock()
 
@@ -112,7 +109,7 @@ func (p *EventProcessor) flushBatch() {
 		return
 	}
 
-	events := make([]map[string]interface{}, len(p.batchBuffer))
+	events := make([]*openapi.Event, len(p.batchBuffer))
 	copy(events, p.batchBuffer)
 	p.batchBuffer = p.batchBuffer[:0]
 
@@ -123,5 +120,27 @@ func (p *EventProcessor) flushBatch() {
 		if err := p.pgStore.BatchSaveEvents(events); err != nil {
 			log.Printf("failed to batch save to PostgreSQL: %v", err)
 		}
+	}
+}
+
+func convertData(d *struct {
+	Message string  `json:"message"`
+	Mood    *string `json:"mood,omitempty"`
+}) *struct {
+	Message *string `json:"message,omitempty"`
+	Mood    *string `json:"mood,omitempty"`
+} {
+	if d == nil {
+		return nil
+	}
+
+	msg := d.Message
+
+	return &struct {
+		Message *string `json:"message,omitempty"`
+		Mood    *string `json:"mood,omitempty"`
+	}{
+		Message: &msg,
+		Mood:    d.Mood,
 	}
 }
