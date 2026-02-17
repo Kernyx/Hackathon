@@ -13,7 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { getStoredAgents } from "@/lib/storage"
-
+import { OpenAPI } from "../../api/core/OpenAPI"
 interface LogEvent {
   id: string;
   timestamp: string;
@@ -146,7 +146,7 @@ export function SideConsole() {
     if (wsRef.current || isConnectingRef.current) return;
     
     isConnectingRef.current = true;
-    const ws = new WebSocket('ws://localhost:8083/api/v1/audit/ws');
+    const ws = new WebSocket(`ws://localhost:8083/api/v1/audit/ws?token=${OpenAPI.TOKEN}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

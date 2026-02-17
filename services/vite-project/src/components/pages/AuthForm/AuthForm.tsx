@@ -97,7 +97,7 @@ const AuthForm: React.FC = () => {
             const token = signinResponse.data;
             if (token) {
                     OpenAPI.TOKEN = token;
-                    console.log("Текущий токен в системе:", OpenAPI.TOKEN);
+                    console.log("Текущий токен в системе:", OpenAPI.HEADERS);
                     const decoded = jwtDecode<MyJwtPayload>(token);
                     const actualUserId = decoded.sub;
 
