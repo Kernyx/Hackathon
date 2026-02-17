@@ -140,14 +140,6 @@ class Agent:
         rel_info = self.get_relationship_description()
         mood_info = self.mood.to_description()
 
-        mood_numbers = (
-            f"  Счастье: {self.mood.happiness:+.1f} | "
-            f"Злость: {self.mood.anger:.1f} | "
-            f"Страх: {self.mood.fear:.1f} | "
-            f"Стресс: {self.mood.stress:.1f} | "
-            f"Энергия: {self.mood.energy:.1f}"
-        )
-
         base_prompt = (
             f"{self.personality_description}\n"
             f"{self._get_race_prompt()}"

@@ -1,0 +1,79 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: "Полная пересборка всех сервисов"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: "🚀 Deploy"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: hackathon
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd /opt/hackathon
+
+            echo "── Git pull ──"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "── Deploy ──"
+            FORCE_DEPLOY=${{ github.event.inputs.force_deploy == 'true' && '1' || '0' }}
+            export FORCE_DEPLOY
+            bash scripts/deploy.sh
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: hackathon
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            sleep 10
+
+            FAILED=0
+            for svc in hackathon-caddy hackathon-auth hackathon-java hackathon-go hackathon-frontend; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "not_found")
+              if [[ "$STATUS" == "healthy" ]]; then
+                echo "✅ $svc: $STATUS"
+              elif [[ "$STATUS" == "starting" ]]; then
+                echo "⏳ $svc: $STATUS"
+              else
+                echo "❌ $svc: $STATUS"
+                FAILED=1
+              fi
+            done
+
+            ML_STATE=$(docker inspect --format='{{.State.Status}}' hackathon-ml 2>/dev/null || echo "not_found")
+            echo "ℹ️ hackathon-ml: $ML_STATE"
+
+            if [[ "$FAILED" -eq 1 ]]; then
+              docker compose --profile all logs --tail=15 2>&1 | tail -40
+              exit 1
+            fi
+
+            echo "🎉 All services healthy!"

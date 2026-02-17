@@ -71,4 +71,4 @@ MOOD_EVENT_IMPACT = 0.30
 MOOD_INTERACTION_IMPACT = 0.15
 
 # --- Реэкспорт данных из data_presets (для обратной совместимости) ---
-from data_presets.mood_data import MOOD_EMOJIS, EVENT_MOOD_TRIGGERS
+from data_presets.mood_data import MOOD_EMOJIS, EVENT_MOOD_TRIGGERS  # noqa: F401, E402

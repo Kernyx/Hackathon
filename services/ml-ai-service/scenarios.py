@@ -13,7 +13,6 @@ from typing import Optional
 
 from colorama import Fore, Style
 
-from config import SCENARIO_EVENT_INTERVAL
 from data_presets.scenarios_data import SCENARIOS_DATA
 import chroma_storage
 

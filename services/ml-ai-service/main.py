@@ -36,12 +36,11 @@ os.environ.setdefault("NO_PROXY", "localhost,127.0.0.1")
 from colorama import Fore, Style, init as colorama_init
 colorama_init()
 
-from config import LLM_MODEL, LLM_BASE_URL, MAX_TICKS, TICK_DELAY, CHROMA_DB_PATH
-from models import RACES
-from agent_registry import agent_registry
-from scenarios import ScenarioManager, UserEventInput
-from orchestrator import RACE_PRESETS, create_agents, BigBrotherOrchestrator
-from session import session_manager
+from config import LLM_MODEL, LLM_BASE_URL, MAX_TICKS, CHROMA_DB_PATH  # noqa: E402
+from models import RACES  # noqa: E402
+from scenarios import ScenarioManager, UserEventInput  # noqa: E402
+from orchestrator import RACE_PRESETS, create_agents, BigBrotherOrchestrator  # noqa: E402
+from session import session_manager  # noqa: E402
 
 
 def main():

@@ -4,14 +4,13 @@
 """
 
 import re
-import time
 import random
 from typing import Optional
 
 from colorama import Fore, Style
 
 from config import (
-    MAX_RESPONSE_CHARS, MEMORY_WINDOW,
+    MAX_RESPONSE_CHARS,
     EVENT_FOCUS_DURATION, EVENT_FORCED_REACTION_TICKS,
     SCENARIO_EVENT_INTERVAL, CREATIVITY_BOOST,
     RELATIONSHIP_CHANGE_RATE, REPETITION_SIMILARITY_THRESHOLD,
@@ -20,9 +19,7 @@ from config import (
 )
 from models import (
     PersonalityType, BigFiveTraits, RaceType,
-    RACES, AgentMood,
 )
-from memory import AgentMemorySystem
 from agent_registry import agent_registry
 from agent import Agent
 from topics import TopicManager, DialoguePhaseManager
@@ -34,7 +31,7 @@ from data_presets.race_presets import RACE_PRESETS, AGENT_COLORS
 
 
 def create_agents(race_preset: str = "humans", user_id: str = "",
-                  registry: 'AgentRegistry' = None) -> list['Agent']:
+                  registry: 'AgentRegistry' = None) -> list['Agent']:  # noqa: F821
     """Создать агентов по выбранному расовому пресету.
     
     Args:
@@ -101,7 +98,7 @@ def create_agents(race_preset: str = "humans", user_id: str = "",
 class BigBrotherOrchestrator:
     def __init__(self, agents: list[Agent], scenario_name: str = "desert_island",
                  user_event_input: Optional[UserEventInput] = None,
-                 user_id: str = "", registry: 'AgentRegistry' = None):
+                 user_id: str = "", registry: 'AgentRegistry' = None):  # noqa: F821
         self.agents = agents
         self.user_id = user_id
         self._registry = registry if registry is not None else agent_registry
@@ -1046,7 +1043,7 @@ class BigBrotherOrchestrator:
         for pattern in gm_copy_patterns:
             if pattern in text_lower:
                 self._log_warning(f"{speaker_display} скопировал текст результата: '{pattern}'")
-                return False, f"не копируй текст результата — говори от себя"
+                return False, "не копируй текст результата — говори от себя"
 
         if len(text.split()) < 3:
             self._log_warning(f"слишком короткое от {speaker_display}: '{text[:30]}'")
@@ -1085,7 +1082,7 @@ class BigBrotherOrchestrator:
         for pattern in system_tag_patterns:
             if pattern in text_lower:
                 self._log_warning(f"{speaker_display} скопировал системный тег: '{pattern}'")
-                return False, f"не копируй системные теги — говори от себя"
+                return False, "не копируй системные теги — говори от себя"
 
         return True, ""
 
