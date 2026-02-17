@@ -12,6 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { getStoredAgents } from "@/lib/storage"
 
 interface LogEvent {
   id: string;
@@ -20,19 +21,32 @@ interface LogEvent {
   type?: 'system' | 'error' | 'info';
 }
 
-export function SideConsole({ agents = [] }: { agents?: any[] }) {
+export function SideConsole() {
   const [open, setOpen] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<any>(null)
+  const [agents, setAgents] = useState<any[]>([])
   
-  const [isConnected, setIsConnected] = useState(true)
+  const [isConnected, setIsConnected] = useState(false)
   const [events, setEvents] = useState<LogEvent[]>([])
   const [inputValue, setInputValue] = useState("")
   
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isConnectingRef = useRef(false);
+  const processedMessageIds = useRef<Set<string>>(new Set());
+
+  // Загружаем агентов из localStorage
+  useEffect(() => {
+    setAgents(getStoredAgents());
+  }, []);
 
   // Функция для добавления системных логов (ошибки, коннекты)
   const addSystemLog = (message: string, type: 'system' | 'error' = 'system') => {
+    const messageId = `${Date.now()}-${message}`;
+    if (processedMessageIds.current.has(messageId)) return;
+    
+    processedMessageIds.current.add(messageId);
+    
     const newMsg: LogEvent = {
       id: crypto.randomUUID(),
       timestamp: new Date().toLocaleTimeString(),
@@ -51,14 +65,17 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
   }, [events]);
 
   useEffect(() => {
-    if (wsRef.current) return;
-
+    // Предотвращаем множественные подключения
+    if (wsRef.current || isConnectingRef.current) return;
+    
+    isConnectingRef.current = true;
     const ws = new WebSocket('ws://localhost:8083/api/v1/audit/ws');
     wsRef.current = ws;
 
     ws.onopen = () => {
       console.log('WebSocket Connected');
       setIsConnected(true);
+      isConnectingRef.current = false;
       addSystemLog("Connected to audit server");
     };
 
@@ -69,6 +86,23 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
           displayData = JSON.parse(event.data);
         } catch {
           displayData = event.data;
+        }
+
+        // Создаем уникальный ID для сообщения на основе данных и времени
+        const messageId = `${Date.now()}-${JSON.stringify(displayData)}`;
+        
+        // Проверяем, не обрабатывали ли мы уже это сообщение
+        if (processedMessageIds.current.has(messageId)) {
+          console.log('Duplicate message ignored:', messageId);
+          return;
+        }
+        
+        processedMessageIds.current.add(messageId);
+        
+        // Ограничиваем размер Set, чтобы не было утечек памяти
+        if (processedMessageIds.current.size > 1000) {
+          const firstId = Array.from(processedMessageIds.current)[0];
+          processedMessageIds.current.delete(firstId);
         }
 
         setEvents(prev => [
@@ -88,19 +122,24 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
     ws.onerror = () => {
       addSystemLog("Connection error occurred", "error");
       setIsConnected(false);
+      isConnectingRef.current = false;
     };
 
     ws.onclose = () => {
       addSystemLog("Disconnected from server", "system");
       setIsConnected(false);
       wsRef.current = null;
+      isConnectingRef.current = false;
     };
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
+      isConnectingRef.current = false;
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.close();
+        }
+        wsRef.current = null;
       }
-      wsRef.current = null;
     };
   }, []);
 
@@ -151,20 +190,20 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
         {/* 2. СЕКЦИЯ ЛОГОВ */}
         <div className="flex-1 min-h-0 relative"> 
           <ScrollArea className="h-full w-full"> 
-            <div className="p-4 space-y-3 font-mono text-[11px] leading-relaxed">
+            <div className="p-4 space-y-3 text-[11px] leading-relaxed">
               {filteredEvents.map((event) => (
-                <div key={event.id} className={`animate-in fade-in slide-in-from-bottom-1 duration-300 border-l-2 pl-2 ${
-                  event.type === 'error' ? 'border-red-500/50' : 
-                  event.type === 'system' ? 'border-yellow-500/50' : 'border-primary/20'
+                <div key={event.id} className={`animate-in fade-in slide-in-from-bottom-1 duration-300 border-l-2 pl-3 py-1.5 rounded-r transition-colors ${
+                  event.type === 'error' ? 'border-red-500/50 bg-red-500/5' : 
+                  event.type === 'system' ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-primary/20 bg-muted/30'
                 }`}>
-                  <div className="flex items-baseline gap-2 mb-0.5">
-                    <span className="text-primary/60 text-[10px]">[{event.timestamp}]</span>
-                    {event.type === 'error' && <span className="text-red-400 font-bold uppercase text-[9px]">Error</span>}
-                    {event.type === 'system' && <span className="text-yellow-400 font-bold uppercase text-[9px]">System</span>}
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-primary/70 text-[10px] font-medium">[{event.timestamp}]</span>
+                    {event.type === 'error' && <span className="text-red-400 font-bold uppercase text-[9px] tracking-wider">Error</span>}
+                    {event.type === 'system' && <span className="text-yellow-400 font-bold uppercase text-[9px] tracking-wider">System</span>}
                   </div>
-                  <div className={`break-all whitespace-pre-wrap ${
-                    event.type === 'error' ? 'text-red-300' : 
-                    event.type === 'system' ? 'text-yellow-200/80' : 'text-muted-foreground'
+                  <div className={`break-all whitespace-pre-wrap text-[11px] ${
+                    event.type === 'error' ? 'text-red-200' : 
+                    event.type === 'system' ? 'text-yellow-100/90' : 'text-foreground/80'
                   }`}>
                     {typeof event.data === 'object' ? JSON.stringify(event.data, null, 2) : String(event.data)}
                   </div>
@@ -178,26 +217,26 @@ export function SideConsole({ agents = [] }: { agents?: any[] }) {
         <Separator />
 
         {/* 3. ЧАТ */}
-        <div className="p-3 bg-muted/20 shrink-0 h-auto">
-          <div className="mb-2 text-[10px] uppercase font-semibold text-muted-foreground px-1 flex justify-between">
-            <span>{selectedAgent ? `Private: ${selectedAgent.name}` : "Global Broadcast"}</span>
-            <span className={isConnected ? "text-green-600" : "text-red-600"}>
+        <div className="p-3 bg-muted/20 shrink-0 h-auto border-t border-border/50">
+          <div className="mb-2 text-[11px] font-medium text-muted-foreground px-1 flex justify-between items-center">
+            <span className="uppercase tracking-wider">{selectedAgent ? `Private: ${selectedAgent.name}` : "Global Broadcast"}</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${isConnected ? "text-green-500" : "text-red-500"}`}>
                 {isConnected ? "ONLINE" : "OFFLINE"}
             </span>
           </div>
-          <div className="relative flex items-center">
+          <div className="relative flex items-center gap-2">
             <Input 
               disabled={!isConnected}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isConnected ? "Send message..." : "Waiting for connection..."} 
-              className="pr-10 bg-background/50 border-muted focus-visible:ring-primary/30"
+              className="pr-10 text-[11px] bg-background/50 border-muted focus-visible:ring-primary/30"
             />
             <Button 
                 size="icon" 
                 variant="ghost" 
-                className="absolute right-0 h-full text-primary"
+                className="h-9 w-9 text-primary hover:bg-primary/10 shrink-0"
                 onClick={handleSendMessage}
                 disabled={!isConnected}
             >
