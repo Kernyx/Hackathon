@@ -83,6 +83,7 @@ func main() {
 	api := e.Group("/api/v1/audit")
 	api.POST("/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
+	api.GET("/history", feedHandler.GetHistory)
 	api.GET("/ws", wsHandler.ServeWS)
 	api.GET("/ws/stats", wsHandler.GetStats)
 
