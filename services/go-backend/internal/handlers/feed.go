@@ -48,3 +48,32 @@ func (h *FeedHandler) GetFeed(c echo.Context) error {
 		"source": "redis",
 	})
 }
+
+func (h *FeedHandler) GetHistory(c echo.Context) error {
+	limitStr := c.QueryParam("limit")
+	limit := 100
+
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+
+			if limit > 1000 {
+				limit = 1000
+			}
+		}
+	}
+
+	events, err := h.pgStore.GetRecentEvents(limit)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to get history",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"events": events,
+		"count":  len(events),
+		"limit":  limit,
+		"source": "postgresql",
+	})
+}
