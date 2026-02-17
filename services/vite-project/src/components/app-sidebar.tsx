@@ -146,10 +146,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             className="w-65 h-full border-r border-border shadow-2xl"
             {...props}
           >
-            <SidebarHeader className="border-b ">
-              <a href="#" className="flex items-center justify-start">
-                    <Logo className="size-20! shrink-0 ml-0"/>
-                  </a>
+            <SidebarHeader className="border-b p-0 gap-0">
+              <a href="#" className="flex items-center p-0">
+                <Logo className="size-20! shrink-0 ml-0" />
+              </a>
             </SidebarHeader>
             
             <SidebarContent>
@@ -172,9 +172,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         className="w-65 h-full"
         {...props}
       >
-        <SidebarHeader className="border-b">
-          <a href="#" className="flex items-center justify-start">
-            <Logo className="size-20! shrink-0 ml-0"/>
+        <SidebarHeader className="border-b p-0 gap-0">
+          <a href="#" className="flex items-center p-0">
+            <Logo className="size-20! shrink-0 ml-0" />
           </a>
         </SidebarHeader>
         
