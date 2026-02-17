@@ -254,24 +254,49 @@ export function SideConsole() {
         <div className="flex-1 min-h-0 relative"> 
           <ScrollArea className="h-full w-full"> 
             <div className="p-4 space-y-3 text-[11px] leading-relaxed">
-              {filteredEvents.map((event) => (
+            {filteredEvents.map((event) => {
+              const isSimulationEvent = event.data && typeof event.data === 'object' && 'source_agent' in event.data;
+              
+              return (
                 <div key={event.id} className={`animate-in fade-in slide-in-from-bottom-1 duration-300 border-l-2 pl-3 py-1.5 rounded-r transition-colors ${
                   event.type === 'error' ? 'border-red-500/50 bg-red-500/5' : 
                   event.type === 'system' ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-primary/20 bg-muted/30'
                 }`}>
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-primary/70 text-[10px] font-medium">[{event.timestamp}]</span>
+                    
+                    {isSimulationEvent && (
+                      <span className="text-primary font-bold tracking-tight">
+                        {event.data.source_agent?.name}:
+                      </span>
+                    )}
+
                     {event.type === 'error' && <span className="text-red-400 font-bold uppercase text-[9px] tracking-wider">Error</span>}
                     {event.type === 'system' && <span className="text-yellow-400 font-bold uppercase text-[9px] tracking-wider">System</span>}
                   </div>
+
                   <div className={`break-all whitespace-pre-wrap text-[11px] ${
                     event.type === 'error' ? 'text-red-200' : 
-                    event.type === 'system' ? 'text-yellow-100/90' : 'text-foreground/80'
+                    event.type === 'system' ? 'text-yellow-100/90' : 'text-foreground/90'
                   }`}>
-                    {typeof event.data === 'object' ? JSON.stringify(event.data, null, 2) : String(event.data)}
+                    {isSimulationEvent ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[12px] leading-snug">
+                          {event.data.data?.message || "Действие без текста"}
+                        </span>
+                        {event.data.source_agent?.mood?.dominant_emotion && (
+                          <span className="text-[9px] opacity-40 italic">
+                            — {event.data.source_agent.mood.dominant_emotion}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      typeof event.data === 'object' ? JSON.stringify(event.data, null, 2) : String(event.data)
+                    )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
