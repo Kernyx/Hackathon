@@ -9,6 +9,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass, asdict
+from typing import Optional
 
 from config import VECTOR_MEMORY_TOP_K
 import chroma_storage

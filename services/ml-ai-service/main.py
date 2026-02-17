@@ -36,11 +36,12 @@ os.environ.setdefault("NO_PROXY", "localhost,127.0.0.1")
 from colorama import Fore, Style, init as colorama_init
 colorama_init()
 
-from config import LLM_MODEL, LLM_BASE_URL, MAX_TICKS, CHROMA_DB_PATH  # noqa: E402
-from models import RACES  # noqa: E402
-from scenarios import ScenarioManager, UserEventInput  # noqa: E402
-from orchestrator import RACE_PRESETS, create_agents, BigBrotherOrchestrator  # noqa: E402
-from session import session_manager  # noqa: E402
+from config import LLM_MODEL, LLM_BASE_URL, MAX_TICKS, TICK_DELAY, CHROMA_DB_PATH
+from models import RACES
+from agent_registry import agent_registry
+from scenarios import ScenarioManager, UserEventInput
+from orchestrator import RACE_PRESETS, create_agents, BigBrotherOrchestrator
+from session import session_manager
 
 
 def main():
@@ -267,4 +268,32 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Режим API-сервера: python main.py --api [--port PORT] [--host HOST]
+    if "--api" in sys.argv:
+        import uvicorn
+        from api import app
+
+        host = "0.0.0.0"
+        port = 8083
+
+        if "--port" in sys.argv:
+            idx = sys.argv.index("--port")
+            if idx + 1 < len(sys.argv):
+                port = int(sys.argv[idx + 1])
+
+        if "--host" in sys.argv:
+            idx = sys.argv.index("--host")
+            if idx + 1 < len(sys.argv):
+                host = sys.argv[idx + 1]
+
+        print(f"\n{'=' * 60}")
+        print(f"  КИБЕР РЫВОК — ML AI Service (API режим)")
+        print(f"  Сервер: http://{host}:{port}")
+        print(f"  Docs:   http://{host}:{port}/docs")
+        print(f"  Модель: {LLM_MODEL}")
+        print(f"{'=' * 60}\n")
+
+        uvicorn.run(app, host=host, port=port)
+    else:
+        # Терминальный режим (оригинальный)
+        main()
