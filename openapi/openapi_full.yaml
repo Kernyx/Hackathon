@@ -5,7 +5,7 @@ info:
 servers:
   - url: /api/v1
 paths:
-  /signup:
+  /auth/signup:
     post:
       tags:
         - Authentication Service
@@ -27,7 +27,7 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
-  /signin:
+  /auth/signin:
     post:
       tags:
         - Authentication Service
@@ -47,7 +47,7 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
-  /refresh-token:
+  /auth/refresh-token:
     get:
       tags:
         - Authentication Service
@@ -70,7 +70,7 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
-  /ai-agents:
+  /ai-agent/agents:
     post:
       tags:
         - AI Agent Service
@@ -80,40 +80,103 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                  examples:
-                    - Alex
-                photo:
-                  type: string
-                  format: byte
-                isMale:
-                  type: boolean
-                age:
-                  type: integer
-                  examples:
-                    - 228
-                interests:
-                  type: string
-                  examples:
-                    - Ездить по ночам на питбайке
-                personalityType:
-                  $ref: '#/components/schemas/PersonalityType'
-                additionalInformation:
-                  type: string
-                  examples:
-                    - Любит яблоки
+              $ref: '#/components/schemas/AiAgentDto'
       responses:
         '201':
           description: AI Agent created
-  /events:
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  /ai-agent/agents/{agentId}:
+    get:
+      tags:
+        - AI Agent Service
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    delete:
+      tags:
+        - AI Agent Service
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    put:
+      tags:
+        - AI Agent Service
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  /ai-agent/users/{userId}/agents/relations:
+    get:
+      tags:
+        - AI Agent Service
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  /audit/events:
     post:
       tags:
         - Audit Service
       summary: Publish AI log
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -151,8 +214,28 @@ paths:
                   required:
                     - message
       responses:
-        '201':
-          description: Event published
+        '202':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    examples:
+                      - accepted
+                  type:
+                    type: string
+                    examples:
+                      - message_sent
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request
+        '429':
+          description: Too many events
 components:
   schemas:
     ErrorCode:
@@ -253,25 +336,47 @@ components:
           type: string
           examples:
             - admin
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits:
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
     AgentTraits:
       type: object
       description: Черты характера
       properties:
         openness:
           type: integer
-          description: Открытость новому
         conscientiousness:
           type: integer
-          description: Организованность и дисциплина
         extraversion:
           type: integer
-          description: Общительность
         agreeableness:
           type: integer
-          description: Склонность к сотрудничеству
         neuroticism:
           type: integer
-          description: Эмоциональная нестабильность
     PersonalityType:
       type: string
       description: Тип личности агента

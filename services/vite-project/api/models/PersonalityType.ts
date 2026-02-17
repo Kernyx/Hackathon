@@ -6,9 +6,9 @@
  * Тип личности агента
  */
 export enum PersonalityType {
-    ALTRUIST = 'Альтруист (добрый)',
-    MACHIAVELLIAN = 'Макиавеллист (злой)',
-    REBEL = 'Бунтарь (непредсказуемый)',
-    STOIC = 'Стоик (хладнокровный)',
-    INDIVIDUAL = 'Индивидуальный (пользовательский)',
+    ALTRUIST = 'ALTRUIST',
+    MACHIAVELLIAN = 'MACHIAVELLIAN',
+    REBEL = 'REBEL',
+    STOIC = 'STOIC',
+    INDIVIDUAL = 'INDIVIDUAL',
 }

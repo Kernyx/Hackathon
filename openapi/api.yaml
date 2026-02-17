@@ -7,15 +7,21 @@ servers:
   - url: /api/v1
 
 paths:
-  /signup:
+  /auth/signup:
     $ref: './components/authentication.yaml#/paths/~1signup'
-  /signin:
+  /auth/signin:
     $ref: './components/authentication.yaml#/paths/~1signin'
-  /refresh-token:
+  /auth/refresh-token:
     $ref: './components/authentication.yaml#/paths/~1refresh-token'
-  /ai-agents:
-    $ref: './components/ai-agent.yaml#/paths/~1ai-agents'
-  /events:
+
+  /ai-agent/agents:
+    $ref: './components/ai-agent.yaml#/paths/~1agents'
+  /ai-agent/agents/{agentId}:
+    $ref: './components/ai-agent.yaml#/paths/~1agents~1{agentId}'
+  /ai-agent/users/{userId}/agents/relations:
+    $ref: './components/ai-agent.yaml#/paths/~1users~1{userId}~1agents~1relations'
+
+  /audit/events:
     $ref: './components/audit.yaml#/paths/~1events'
 
 components:
@@ -28,10 +34,14 @@ components:
       $ref: './components/authentication.yaml#/components/schemas/SignUpDto'
     SignInDto:
       $ref: './components/authentication.yaml#/components/schemas/SignInDto'
+    
+    AiAgentDto:
+      $ref: './components/ai-agent.yaml#/components/schemas/AiAgentDto'
     AgentTraits:
       $ref: './components/ai-agent.yaml#/components/schemas/AgentTraits'
     PersonalityType:
       $ref: './components/ai-agent.yaml#/components/schemas/PersonalityType'
+    
     AiAgent:
       $ref: './components/audit.yaml#/components/schemas/AiAgent'
 

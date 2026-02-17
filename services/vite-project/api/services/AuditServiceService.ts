@@ -10,11 +10,11 @@ export class AuditServiceService {
     /**
      * Publish AI log
      * @param requestBody
-     * @returns any Event published
+     * @returns any Event accepted
      * @throws ApiError
      */
-    public static postEvents(
-        requestBody?: {
+    public static postAuditEvents(
+        requestBody: {
             /**
              * Тип события для ML обработки
              */
@@ -45,12 +45,20 @@ export class AuditServiceService {
                 mood?: string;
             };
         },
-    ): CancelablePromise<any> {
+    ): CancelablePromise<{
+        status?: string;
+        type?: string;
+        timestamp?: string;
+    }> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/events',
+            url: '/audit/events',
             body: requestBody,
             mediaType: 'application/json',
+            errors: {
+                400: `Invalid request`,
+                429: `Too many events`,
+            },
         });
     }
 }

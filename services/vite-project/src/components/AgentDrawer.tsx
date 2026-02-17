@@ -131,7 +131,7 @@ React.useEffect(() => {
         additionalInformation: JSON.stringify(traits)
       };
       
-      await AiAgentServiceService.postAiAgents(requestBody);
+      await AiAgentServiceService.postAiAgentAgents(requestBody);
 
       onSaveSuccess(); // Обновляем список в SectionCards
       onOpenChange(false); // Закрываем

@@ -28,24 +28,24 @@ public class AiAgentController {
   private final AiAgentUsecase aiAgentUsecase;
 
   @PostMapping("/agents")
-  public ResponseEntity<String> createAiAgent(@RequestBody @Validated AgentCreateDto dto) {
+  public ResponseEntity<Void> createAiAgent(@RequestBody @Validated AgentCreateDto dto) {
     AiAgentCommand command = mapper.toCommand(dto);
     aiAgentUsecase.registerAgent(command);
-    return ResponseEntity.status(HttpStatus.CREATED).body("ok");
+    return ResponseEntity.status(HttpStatus.CREATED).build();
   }
 
   @PutMapping("/agents/{agentId}")
-  public ResponseEntity<String> updateAiAgent(
+  public ResponseEntity<Void> updateAiAgent(
       @PathVariable("agentId") UUID agentId, @RequestBody @Validated AgentUpdateDto dto) {
     AiAgentCommand command = mapper.toCommand(dto);
     aiAgentUsecase.updateAgent(command, agentId);
-    return ResponseEntity.ok().body("Updated");
+    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
   }
 
   @DeleteMapping("/agents/{agentId}")
-  public ResponseEntity<String> deleteAiAgent(@PathVariable("agentId") UUID agentId) {
+  public ResponseEntity<Void> deleteAiAgent(@PathVariable("agentId") UUID agentId) {
     aiAgentUsecase.removeAgent(agentId);
-    return ResponseEntity.status(HttpStatus.OK).body("Deleted");
+    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
   }
 
   @GetMapping("/agents/{agentId}")
