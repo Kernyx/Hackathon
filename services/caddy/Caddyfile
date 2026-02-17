@@ -109,10 +109,8 @@ api.besthackaton.duckdns.org {
                 dial_timeout 5s
                 response_header_timeout 60s
             }
-            
+
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 
@@ -133,10 +131,8 @@ api.besthackaton.duckdns.org {
                 dial_timeout 10s
                 response_header_timeout 120s
             }
-            
+
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 
@@ -159,8 +155,6 @@ api.besthackaton.duckdns.org {
             }
 
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 
@@ -183,8 +177,6 @@ api.besthackaton.duckdns.org {
             }
 
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 

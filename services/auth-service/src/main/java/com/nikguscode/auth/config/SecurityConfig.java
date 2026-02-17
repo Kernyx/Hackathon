@@ -52,7 +52,7 @@ public class SecurityConfig {
     return http
         .csrf(AbstractHttpConfigurer::disable)
         .authorizeHttpRequests((requests) -> requests
-            .requestMatchers("/api/v1/auth/**").permitAll()
+            .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
             .anyRequest().authenticated())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -60,7 +60,7 @@ public class SecurityConfig {
             .authenticationEntryPoint(
                 (request, response, authException)
                     -> exceptionResolver.resolveException(request, response, null, authException))
-            .jwt(jwt -> jwtAuthenticationConverter()))
+            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
         .build();
   }
 
