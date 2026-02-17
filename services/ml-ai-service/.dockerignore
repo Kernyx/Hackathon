@@ -1,0 +1,35 @@
+# Git / VCS
+.git/
+.gitignore
+
+# Data (ChromaDB runtime data — use Docker volume)
+data/
+
+# Backups
+backups/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation
+*.md
+!requirements.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

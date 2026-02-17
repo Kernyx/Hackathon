@@ -5,7 +5,6 @@
 import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Optional
 
 from colorama import Fore, Style
 
@@ -37,7 +36,7 @@ class MemoryItem:
 
 
 class AgentMemorySystem:
-    def __init__(self, agent_id: str, user_id: str = "", registry: 'AgentRegistry' = None):
+    def __init__(self, agent_id: str, user_id: str = "", registry: 'AgentRegistry' = None):  # noqa: F821
         self.agent_id = agent_id
         self.user_id = user_id
         self._registry = registry  # Изолированный реестр сессии (если None — глобальный)

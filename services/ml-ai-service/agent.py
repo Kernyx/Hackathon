@@ -9,18 +9,18 @@ from typing import Optional
 from colorama import Fore, Style
 
 from config import (
-    MEMORY_WINDOW, SHORT_TERM_MEMORY,
+    MEMORY_WINDOW,
     EVENT_FOCUS_DURATION, REPETITION_CONSECUTIVE_LIMIT,
     MAX_CONTEXT_TOKENS,
 )
 from models import (
-    PersonalityType, BigFiveTraits, RaceType, RaceModifiers,
+    PersonalityType, BigFiveTraits, RaceType,
     Race, RACES, AgentMood,
 )
 from memory import AgentMemorySystem
 from agent_registry import agent_registry
 from topics import ActionPlan
-from utils import text_similarity, estimate_tokens, estimate_messages_tokens
+from utils import estimate_tokens
 
 
 @dataclass
@@ -139,14 +139,6 @@ class Agent:
 
         rel_info = self.get_relationship_description()
         mood_info = self.mood.to_description()
-
-        mood_numbers = (
-            f"  Счастье: {self.mood.happiness:+.1f} | "
-            f"Злость: {self.mood.anger:.1f} | "
-            f"Страх: {self.mood.fear:.1f} | "
-            f"Стресс: {self.mood.stress:.1f} | "
-            f"Энергия: {self.mood.energy:.1f}"
-        )
 
         base_prompt = (
             f"{self.personality_description}\n"
