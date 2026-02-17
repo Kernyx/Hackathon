@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User } from 'lucide-react';
 import { saveUserIdToStorage } from '@/lib/storage.ts';
 import { jwtDecode } from "jwt-decode"; // Не забудь установить
-import { OpenAPI } from '../../../../api/core/OpenAPI.ts';
+// import { OpenAPI } from '../../../../api/core/OpenAPI.ts';
 
 // Типизация того, что лежит внутри твоего JWT
 interface MyJwtPayload {
@@ -96,7 +96,7 @@ const AuthForm: React.FC = () => {
 
             const token = signinResponse.data;
             if (token) {
-                    OpenAPI.TOKEN = token;
+                    // OpenAPI.TOKEN = token;
                     const decoded = jwtDecode<MyJwtPayload>(token);
                     const actualUserId = decoded.sub;
 
