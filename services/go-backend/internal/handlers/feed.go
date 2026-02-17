@@ -90,3 +90,60 @@ func (h *FeedHandler) GetHistory(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response)
 }
+
+// Получить события конкретного агента
+func (h *FeedHandler) GetAgentEvents(c echo.Context) error {
+	agentID := c.Param("agent_id")
+	if agentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "agent_id is required",
+		})
+	}
+
+	limitStr := c.QueryParam("limit")
+	limit := 50
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+			if limit > 500 {
+				limit = 500
+			}
+		}
+	}
+
+	events, err := h.pgStore.GetEventsByAgentID(agentID, limit)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to get agent events",
+		})
+	}
+
+	response := map[string]interface{}{
+		"events":   events,
+		"count":    len(events),
+		"limit":    limit,
+		"agent_id": agentID,
+		"source":   "postgresql",
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// Получить статистику по агенту
+func (h *FeedHandler) GetAgentStats(c echo.Context) error {
+	agentID := c.Param("agent_id")
+	if agentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "agent_id is required",
+		})
+	}
+
+	stats, err := h.pgStore.GetAgentStats(agentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to get agent stats",
+		})
+	}
+
+	return c.JSON(http.StatusOK, stats)
+}

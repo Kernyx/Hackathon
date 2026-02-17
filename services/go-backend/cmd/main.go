@@ -84,6 +84,8 @@ func main() {
 	api.POST("/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
 	api.GET("/history", feedHandler.GetHistory)
+	api.GET("/agents/:agent_id/events", feedHandler.GetAgentEvents)
+	api.GET("/agents/:agent_id/stats", feedHandler.GetAgentStats)
 	api.GET("/ws", wsHandler.ServeWS)
 	api.GET("/ws/stats", wsHandler.GetStats)
 
