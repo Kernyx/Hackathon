@@ -2,16 +2,21 @@ import type { AgentData } from "../components/AgentDrawer";
 
 export const LS_KEY = "ai_agents_data";
 export const USER_ID_KEY = "userId";
+
+export const saveUserIdToStorage = (userId: string) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(USER_ID_KEY, userId);
+};
+
+export const getStoredUserId = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(USER_ID_KEY);
+};
+
 export const getStoredAgents = (): AgentData[] => {
   if (typeof window === "undefined") return [];
-
-  const currentUserId = localStorage.getItem(USER_ID_KEY);
-
-  if (!currentUserId) return [];
-
   const data = localStorage.getItem(LS_KEY);
-  const allAgents = data ? JSON.parse(data) : [];
-  return allAgents.filter((agent: any) => agent.ownerId === currentUserId);
+  return data ? JSON.parse(data) : [];
 };
 
 export const saveAgentToStorage = (agent: any) => {
