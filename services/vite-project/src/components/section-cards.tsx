@@ -1,10 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AgentDrawer, type AgentData } from "./AgentDrawer" // Импортируем тип
-import { getStoredAgents } from "@/lib/storage";
+import { deleteAgentFromStorage, getStoredAgents } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
-import { useState } from "react"
-import { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react"
+import type { MouseEvent } from "react"
 import { Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,36 +18,55 @@ export function SectionCards() {
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentData | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
+  const deleteTimersRef = useRef<Map<string, number>>(new Map());
+  const pendingDeleteRef = useRef<Set<string>>(new Set());
 
-  const handleDeleteRequest = (e: React.MouseEvent, id: string) => {
+  useEffect(() => {
+    pendingDeleteRef.current = pendingDelete;
+  }, [pendingDelete]);
+
+  const handleDeleteRequest = (e: MouseEvent, id: string) => {
     e.stopPropagation();
     setPendingDelete((prev) => new Set(prev).add(id));
   };
 
   const handleMouseLeave = (id: string) => {
     if (pendingDelete.has(id)) {
+      // Не ставим второй таймер на тот же id
+      if (deleteTimersRef.current.has(id)) return;
+
       // Если пользователь увел мышку с "удаляемой" карточки, 
       // даем ему 1.5 - 2 секунды передумать и удаляем окончательно
-      setTimeout(() => {
-        setPendingDelete((prev) => {
-          if (prev.has(id)) {
-            const newSet = new Set(prev);
-            newSet.delete(id);
-            
-            // ВЫЗЫВАЙ СВОЮ ФУНКЦИЮ УДАЛЕНИЯ ИЗ ТУТ:
-            // deleteAgent(id); 
-            // refreshData();
-            
-            return newSet;
-          }
-          return prev;
-        });
+      const timerId = window.setTimeout(() => {
+        // Удаляем только если "Отмена" всё ещё показывается (т.е. не отменили)
+        if (pendingDeleteRef.current.has(id)) {
+          deleteAgentFromStorage(id);
+          refreshData();
+          setPendingDelete((prev) => {
+            if (!prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }
+
+        // Таймер отработал — чистим ссылку
+        deleteTimersRef.current.delete(id);
       }, 2000); // Время на "подумать" после отвода курсора
+
+      deleteTimersRef.current.set(id, timerId);
     }
   };
 
-  const handleUndo = (e: React.MouseEvent, id: string) => {
+  const handleUndo = (e: MouseEvent, id: string) => {
     e.stopPropagation();
+
+    const t = deleteTimersRef.current.get(id);
+    if (t) {
+      window.clearTimeout(t);
+      deleteTimersRef.current.delete(id);
+    }
+
     setPendingDelete((prev) => {
       const newSet = new Set(prev);
       newSet.delete(id);
