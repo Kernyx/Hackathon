@@ -1,7 +1,7 @@
 function LoadingPage() {
 
   return (
-    <div className="relative w-screen h-screen bg-[#1A1A1A] overflow-hidden flex items-center justify-center">
+    <div className="flex items-center justify-center pointer-events-none">
       <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" 
         viewBox="0 0 1024 1024"
         preserveAspectRatio="xMidYMid meet">
