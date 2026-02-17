@@ -48,7 +48,7 @@ func main() {
 
 	pgStore, err := storage.NewPostgresStore(connStr)
 	if err != nil {
-		log.Fatal("failed to connect ot PostgreSQL: %v", err)
+		log.Fatalf("failed to connect ot PostgreSQL: %v", err)
 	}
 	defer pgStore.Close()
 	log.Println("Connected to PostgreSQL")
