@@ -95,6 +95,8 @@ func (p *PostgresStore) BatchSaveEvents(eventMaps []map[string]interface{}) erro
 
 	events := make([]*Event, 0, len(eventMaps))
 	for _, eventMap := range eventMaps {
+		log.Printf("EVENT MAP: %#v", eventMap)
+
 		events = append(events, p.mapToEvent(eventMap))
 	}
 
@@ -174,7 +176,7 @@ func (p *PostgresStore) mapToEvent(eventMap map[string]interface{}) *Event {
 
 	if ts, ok := eventMap["timestamp"].(string); ok {
 		t, err := time.Parse(time.RFC3339, ts)
-		if err != nil {
+		if err == nil {
 			event.Timestamp = &t
 		}
 	}
