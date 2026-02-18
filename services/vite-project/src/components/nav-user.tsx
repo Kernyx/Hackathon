@@ -28,13 +28,14 @@ import {
 } from "@/components/ui/sidebar"
 import { LS_KEY } from "@/lib/storage"
 export function NavUser({
-  user,
+  user, onOpenChange
 }: {
   user: {
     name: string
     email: string
     avatar: string
-  }
+  };
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export function NavUser({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={onOpenChange}>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"

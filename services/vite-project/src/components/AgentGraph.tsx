@@ -55,7 +55,6 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
     });
 
     if (link) {
-      // Ставим временный текст для визуала
       link.message = "DATA PACKET"; 
       graphRef.current.emitParticle(link);
       
@@ -250,7 +249,7 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
 
   const nodeCountForLinks = data.nodes.length;
   return (
-    <div className="w-full h-full min-h-150 rounded-xl overflow-hidde relative">
+    <div className="h-full min-h-150 rounded-xl overflow-hidde relative">
       <ForceGraph2D
         ref={graphRef}
         graphData={data}

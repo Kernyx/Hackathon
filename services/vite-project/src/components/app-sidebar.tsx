@@ -113,6 +113,7 @@ import { ChevronRight } from "lucide-react"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { open, setOpen } = useSidebar()
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false)
   const location = useLocation()
   const isUsersPage = location.pathname === "/users"
   if (isUsersPage) {
@@ -130,7 +131,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         {/* 2. САЙДБАР */}
         <div 
-          onMouseLeave={() => setOpen(false)}
+          onMouseLeave={() => {if (!isMenuOpen) setOpen(false)}}
           className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
@@ -153,7 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarContent>
 
             <SidebarFooter className="border-t">
-              <NavUser user={data.user} />
+              <NavUser user={data.user}  onOpenChange={setIsMenuOpen}/>
             </SidebarFooter>
           </Sidebar>
         </div>
@@ -180,7 +181,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
 
         <SidebarFooter className="border-t">
-          <NavUser user={data.user} />
+          <NavUser user={data.user}/>
         </SidebarFooter>
       </Sidebar>
     </div>

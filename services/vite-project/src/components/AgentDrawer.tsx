@@ -105,7 +105,7 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
     try {
       const isEdit = !!agent?.id;
       const newAgentData: AgentData = {
-        id: agent?.id || crypto.randomUUID(), // <-- ГАРАНТИРУЕМ НАЛИЧИЕ ID
+        id: agent?.id || crypto.randomUUID(), 
         name,
         age,
         male,
