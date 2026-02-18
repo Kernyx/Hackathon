@@ -176,10 +176,14 @@ if docker ps --filter "name=^/hackathon-ml$" --format '{{.Names}}' | grep -q "ha
     else
         print_status "FAIL" "ML → Go: cannot reach go-backend:8083"
     fi
-    if docker exec hackathon-ml python -c "import urllib.request; urllib.request.urlopen('http://host.docker.internal:1234/v1/models', timeout=5)" > /dev/null 2>&1; then
+    # Проверка, что у контейнера есть extra_hosts (host.docker.internal) — иначе с хоста не достучаться
+    HAS_HOST_GW=$(docker inspect hackathon-ml --format '{{range .HostConfig.ExtraHosts}}{{.}}{{end}}' 2>/dev/null | grep -o 'host.docker.internal' || true)
+    if [ -z "$HAS_HOST_GW" ]; then
+        print_status "WARN" "ML → Ollama: контейнер без extra_hosts (host.docker.internal). Пересоздайте: docker compose --profile all up -d --force-recreate ml-service"
+    elif docker exec hackathon-ml python -c "import urllib.request; urllib.request.urlopen('http://host.docker.internal:1234/v1/models', timeout=5)" > /dev/null 2>&1; then
         print_status "OK" "ML → Ollama (host.docker.internal:1234)"
     else
-        print_status "WARN" "ML → Ollama: host.docker.internal:1234 unreachable (Ollama may not be running on host)"
+        print_status "WARN" "ML → Ollama: host.docker.internal:1234 unreachable (туннель поднят? ssh -R 0.0.0.0:1234:...)"
     fi
 else
     print_status "WARN" "ML connectivity: hackathon-ml not running, skipped"
@@ -224,7 +228,18 @@ fi
 check_url "Public Frontend" "https://$DOMAIN" "200"
 check_url "Public API /actuator/health" "https://$API_DOMAIN/actuator/health" "200"
 check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
-check_url "Public API /api/v1/ml (Caddy→ML)" "https://$DOMAIN/api/v1/ml/users/test123/session" "200"
+# ML: проверяем через API-домен; 404 при запуске с VPS — часто hairpinning (скрипт на том же хосте)
+ML_URL="https://$API_DOMAIN/api/v1/ml/users/test123/session"
+ML_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$ML_URL")
+if [ "$ML_CODE" = "200" ]; then
+    print_status "OK" "Public API /api/v1/ml (Caddy→ML) -> 200"
+elif [ "$ML_CODE" = "404" ]; then
+    print_status "WARN" "Public API /api/v1/ml -> 404 (при запуске с VPS возможно hairpinning; снаружи проверьте вручную)"
+elif [ "$ML_CODE" = "000" ]; then
+    print_status "FAIL" "Public API /api/v1/ml -> Connection Refused / Timeout"
+else
+    print_status "FAIL" "Public API /api/v1/ml -> $ML_CODE (Expected: 200)"
+fi
 echo ""
 
 # === 5. RESOURCES ===
