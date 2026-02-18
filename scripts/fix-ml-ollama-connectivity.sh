@@ -1,6 +1,4 @@
 #!/bin/bash
-# Диагностика и подсказка: почему контейнер ML не достучивается до host.docker.internal:1234 (Ollama/LM Studio).
-# Запускать на VPS от пользователя, имеющего доступ к docker и (для проверки) curl.
 
 set -e
 echo "=== Проверка доступа к порту 1234 (LM Studio / Ollama) ==="
@@ -18,7 +16,6 @@ fi
 # 2. Узнать, на какой IP контейнер стучится и из какой подсети (source)
 GATEWAY_IP=$(docker exec hackathon-ml getent hosts host.docker.internal 2>/dev/null | awk '{print $1}' || true)
 CONTAINER_NET=$(docker inspect hackathon-ml --format '{{range $k, $v := .NetworkSettings.Networks}}{{$v.IPAddress}} {{$v.Gateway}} {{end}}' 2>/dev/null | awk '{print $1; exit}')
-# Подсеть контейнера: 172.19.0.5 → 172.19.0.0/16 (источник пакетов — именно она важна для INPUT)
 CONTAINER_SUBNET=$(echo "$CONTAINER_NET" | sed -n 's/^\([0-9]*\.[0-9]*\.[0-9]*\)\.[0-9]*$/\1.0\/16/p')
 if [ -z "$GATEWAY_IP" ]; then
     echo "2. host.docker.internal в контейнере не резолвится (нет extra_hosts?)"
@@ -40,7 +37,7 @@ if docker exec hackathon-ml python -c "import urllib.request; urllib.request.url
     exit 0
 fi
 
-echo "   FAIL — таймаут из контейнера. UFW/iptables режет INPUT: пакеты идут с подсети контейнера (source), не шлюза."
+echo "FAIL — таймаут из контейнера. UFW/iptables режет INPUT: пакеты идут с подсети контейнера (source), не шлюза."
 echo ""
 echo "Пакеты из контейнера имеют source = $CONTAINER_SUBNET (hackathon-net). Разрешите порт 1234 с этой подсети (нужен root):"
 echo "  sudo iptables -I INPUT -p tcp -s $CONTAINER_SUBNET --dport 1234 -j ACCEPT"
