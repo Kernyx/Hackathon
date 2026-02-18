@@ -1,12 +1,14 @@
+# syntax=docker/dockerfile:1.7
 # Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+RUN npx vite build
 
 # Runtime stage — nginx для отдачи статики
 FROM nginx:1.27-alpine

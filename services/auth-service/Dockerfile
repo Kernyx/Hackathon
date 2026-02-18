@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Build stage
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 
@@ -9,10 +10,12 @@ ARG DB_NAME=hackathon_db
 WORKDIR /app
 
 COPY pom.xml ./
-RUN mvn dependency:go-offline -B
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:go-offline -B
 
 COPY src ./src
-RUN mvn package -B -DskipTests \
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn package -B -DskipTests \
        -Dprop.skipLoadProperties=true \
        -DDB_HOST="${DB_HOST}" \
        -DDB_USERNAME="${DB_USERNAME}" \
