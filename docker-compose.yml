@@ -195,6 +195,8 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       RABBIT_HOST: rabbitmq
+    volumes:
+      - ./secrets:/app/keys:ro
     networks:
       - hackathon-net
     depends_on:
@@ -348,4 +350,3 @@ volumes:
   caddy-data:
   caddy-config:
   ml-chroma-data:
-
