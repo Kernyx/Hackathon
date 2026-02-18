@@ -22,10 +22,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 384m
+    cpus: 0.80
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -51,10 +53,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 320m
+    cpus: 0.70
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 320M
 
   redis:
     image: redis:7-alpine
@@ -71,15 +75,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 160m
+    cpus: 0.25
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 160M
 
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: hackathon-pgadmin
-    profiles: ["infra", "all"]
+    profiles: ["infra-tools"]
     restart: unless-stopped
     env_file: .env
     environment:
@@ -95,10 +101,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    mem_limit: 128m
+    cpus: 0.25
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 128M
 
   # === CADDY ===
   caddy:
@@ -123,10 +131,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    mem_limit: 128m
+    cpus: 0.30
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 128M
 
   # === МИКРОСЕРВИСЫ ===
   frontend:
@@ -150,10 +160,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    mem_limit: 96m
+    cpus: 0.30
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 96M
 
   java-backend:
     build:
@@ -176,6 +188,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_PROFILES_ACTIVE: docker
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=25.0 -XX:MaxMetaspaceSize=160m"
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: ${DB_NAME}
@@ -195,10 +208,12 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    mem_limit: 640m
+    cpus: 1.00
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 640M
 
   auth-service:
     build:
@@ -218,6 +233,7 @@ services:
     env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=25.0 -XX:MaxMetaspaceSize=128m"
       DB_HOST: postgres
       DB_NAME: ${DB_NAME}
       DB_USERNAME: ${DB_USER}
@@ -235,10 +251,12 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    mem_limit: 384m
+    cpus: 0.80
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   go-backend:
     build:
@@ -273,10 +291,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    mem_limit: 160m
+    cpus: 0.50
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 160M
 
   ml-service:
     build:
@@ -310,10 +330,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    mem_limit: 640m
+    cpus: 0.80
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 640M
 
 networks:
   hackathon-net:
@@ -326,3 +348,4 @@ volumes:
   caddy-data:
   caddy-config:
   ml-chroma-data:
+

@@ -5,6 +5,7 @@ set -e
 PROJECT_ROOT="${DEPLOY_ROOT:-/opt/hackathon}"
 LOG_FILE="$PROJECT_ROOT/logs/deploy.log"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
+COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-2}"
 
 # Добавление сервиса в список без дублей
 add_service() {
@@ -112,7 +113,7 @@ else
 
     if [ "${#CHANGED_SERVICES[@]}" -gt 0 ]; then
         log "🔄 Пересборка: ${CHANGED_SERVICES[*]}"
-        build_with_recovery "docker compose up -d --build ${CHANGED_SERVICES[*]}"
+        build_with_recovery "COMPOSE_PARALLEL_LIMIT=${COMPOSE_PARALLEL_LIMIT} docker compose up -d --build ${CHANGED_SERVICES[*]}"
     fi
     log "✅ Деплой завершён"
 fi
@@ -129,3 +130,4 @@ if [ -f "$PROJECT_ROOT/scripts/check-health.sh" ]; then
 fi
 
 echo "----------------------------------------" >> "$LOG_FILE"
+
