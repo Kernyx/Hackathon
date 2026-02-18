@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { AiAgentServiceService } from "../../api/services/AiAgentServiceService"
-import { saveAgentToStorage } from "@/lib/storage"
+import { getAgentsFromStorage, saveAgentToStorage } from "@/lib/storage"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,7 +28,6 @@ import { Slider } from "@/components/ui/slider"
 
 const AVATAR_OPTIONS = ["Alex", "Jordan", "Taylor", "Sasha", "Casey", "Mika", "Charlie"];
 
-// Типы UI (внутренние)
 export type AgentData = {
   id?: string;
   name: string;
@@ -44,9 +43,11 @@ export type AgentData = {
     agreeableness: number;
     neuroticism: number;
   };
+  isSynced?: boolean;
+  mood?: string;
+  ownerId?: string;
 }
 
-// Константы пресетов
 const PERSONALITY_PRESETS = {
   Analyst: { openness: 80, conscientiousness: 90, extraversion: 40, agreeableness: 50, neuroticism: 30 },
   Diplomat: { openness: 70, conscientiousness: 60, extraversion: 70, agreeableness: 90, neuroticism: 40 },
@@ -86,9 +87,12 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
   const [traits, setTraits] = React.useState(PERSONALITY_PRESETS.Custom);
   const [male, setMale] = React.useState(true);
 
+  // ← ЛОГИРОВАНИЕ: Отслеживаем получение agent
   React.useEffect(() => {
     if (open) {
       setServerError(null);
+      console.log("📦 AgentDrawer opened with agent:", agent);
+      console.log("📦 agent?.isSynced value:", agent?.isSynced);
 
       if (agent) {
         setName(agent.name || "");
@@ -128,15 +132,24 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
   const handleSaveClick = async () => {
     setIsLoading(true);
     setServerError(null);
+
+    // ← ЛОГИРОВАНИЕ: Начало сохранения
+    console.log("💾 handleSaveClick started");
+    console.log("💾 agent object:", agent);
+    console.log("💾 agent?.isSynced:", agent?.isSynced);
+    console.log("💾 agent?.id:", agent?.id);
+
     try {
       const userId = localStorage.getItem("userId");
+      console.log("💾 userId from localStorage:", userId);
 
-      // 1. Проверяем наличие в localStorage, а не только наличие объекта agent
-      const localAgents = getAgentsFromStorage() || [];
-      const existsInStorage = agent?.id ? localAgents.some((a: any) => a.id === agent.id) : false;
-      const isEdit = existsInStorage;
+      // ← ЛОГИРОВАНИЕ: Проверка isEdit
+      const isEdit = agent?.isSynced === true;
+      console.log("💾 isEdit calculated as:", isEdit);
+      console.log("💾 agent?.isSynced === true evaluates to:", agent?.isSynced === true);
 
       if (!userId && !isEdit) {
+        console.log("❌ No userId and not edit - blocking save");
         setServerError("Пользователь не авторизован (отсутствует userId).");
         setIsLoading(false);
         return;
@@ -151,8 +164,11 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
         avatarSeed: selectedAvatar,
         role,
         traits,
-        mood: agent?.mood || "neutral"
+        mood: agent?.mood || "neutral",
+        isSynced: true
       };
+
+      console.log("💾 newAgentData to save:", newAgentData);
 
       const requestBody: any = {
         userId: userId,
@@ -166,23 +182,37 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
         additionalInformation: ""
       };
 
+      // ← ЛОГИРОВАНИЕ: Выбор метода запроса
       if (isEdit) {
+        console.log("✏️ EXECUTING PUT REQUEST (edit mode)");
+        console.log("✏️ PUT URL: /ai-agent/agents/", agent!.id);
         await AiAgentServiceService.putAiAgentAgents(agent!.id!, requestBody);
+        console.log("✏️ PUT request completed successfully");
       } else {
-        await AiAgentServiceService.postAiAgentAgents(requestBody);
+        console.log("➕ EXECUTING POST REQUEST (create mode)");
+        const response = await AiAgentServiceService.postAiAgentAgents(requestBody);
+        console.log("➕ POST request completed, response:", response);
+        if (response?.id) {
+          newAgentData.id = response.id;
+          console.log("➕ Updated newAgentData.id with server response:", response.id);
+        }
       }
 
-      // 2. Обновляем локальное хранилище
+      console.log("💾 Saving to localStorage...");
       saveAgentToStorage(newAgentData);
+      console.log("💾 Save to localStorage completed");
 
       onSaveSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Ошибка при сохранении агента:", err);
+      console.error("❌ Error during save:", err);
+      console.error("❌ Error response:", err?.response);
+      console.error("❌ Error data:", err?.response?.data);
       const message = err?.response?.data?.message || err?.message || "Не удалось сохранить агента";
       setServerError(message);
     } finally {
       setIsLoading(false);
+      console.log("💾 handleSaveClick finished");
     }
   };
 
@@ -190,19 +220,19 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
     <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="h-full w-full sm:max-w-100 ml-auto rounded-none shadow-2xl bg-card">
         <DrawerHeader className="gap-1">
-          <DrawerTitle>{agent?.id ? "Редактирование" : "Новый агент"}</DrawerTitle>
+          <DrawerTitle>{agent?.isSynced ? "Редактирование" : "Новый агент"}</DrawerTitle>
           <DrawerDescription>Настройка параметров ИИ-агента</DrawerDescription>
         </DrawerHeader>
 
         {serverError && (
-          <div className="px-4 pb-2 animate-in fade-in slide-in-from-top-2">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Ошибка</AlertTitle>
-              <AlertDescription>
-                {serverError}
-              </AlertDescription>
-            </Alert>
+          <div className="mx-4 mb-2 rounded-md border border-red-500 bg-red-50 p-3 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5" />
+              <div>
+                <p className="font-medium text-sm">Ошибка</p>
+                <p className="text-sm opacity-90">{serverError}</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -364,7 +394,7 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
                     } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <img
-                      src={`https://api.dicebear.com/7.x/notionists/svg?seed=  ${seed}`}
+                      src={`https://api.dicebear.com/7.x/notionists/svg?seed=${seed}`}
                       alt={seed}
                       className="h-12 w-12 rounded-full bg-muted"
                     />
