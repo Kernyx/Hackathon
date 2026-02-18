@@ -36,7 +36,7 @@ const data = {
     },
     {
       title: "Relations",
-      url: "/users",
+      url: "/relations",
       icon: IconBlocks,
     },
   ],

@@ -197,8 +197,10 @@ useEffect(() => {
     // Предотвращаем множественные подключения
     if (wsRef.current || isConnectingRef.current) return;
     
+    const token = localStorage.getItem('token');
+    
     isConnectingRef.current = true;
-    const ws = new WebSocket(`wss://besthackaton.duckdns.org/api/v1/audit/ws?token=${OpenAPI.TOKEN}`);
+    const ws = new WebSocket(`wss://besthackaton.duckdns.org/api/v1/audit/ws?token=${token}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
