@@ -1,4 +1,4 @@
-# ── Stage 1: установка зависимостей ──
+# Build stage
 FROM python:3.12-slim AS builder
 
 WORKDIR /build
@@ -10,7 +10,7 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Stage 2: минимальный runtime ──
+# Runtime stage
 FROM python:3.12-slim
 
 LABEL maintainer="hackathon-ml"
@@ -25,7 +25,6 @@ WORKDIR /app
 
 COPY . .
 
-# Создаём директорию для ChromaDB
 RUN mkdir -p /app/data/chroma_db
 
 RUN groupadd -r ml && useradd -r -g ml -d /app ml && \

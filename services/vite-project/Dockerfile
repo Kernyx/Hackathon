@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Build stage
 FROM node:20-alpine AS builder
 
@@ -10,7 +9,7 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 RUN npx vite build
 
-# Runtime stage — nginx для отдачи статики
+# Runtime stage
 FROM nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html

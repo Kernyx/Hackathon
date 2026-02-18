@@ -5,8 +5,8 @@ spring:
   application:
     name: AI Agent Service
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          public-key-location: file://../../secrets/public.pem
+  # security:
+  #   oauth2:
+  #     resourceserver:
+  #       jwt:
+  #         public-key-location: file://../../secrets/public.pem
