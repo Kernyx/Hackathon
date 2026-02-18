@@ -22,20 +22,20 @@ export class AiAgentServiceService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `Bad credentials`,
-                401: `Unauthorized`,
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
             },
         });
     }
     /**
      * Get AI agent
      * @param agentId
-     * @returns any Returns AI agent
+     * @returns AiAgentDto Returns AI agent
      * @throws ApiError
      */
     public static getAiAgentAgents(
         agentId: string,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<AiAgentDto> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/ai-agent/agents/{agentId}',
@@ -43,29 +43,8 @@ export class AiAgentServiceService {
                 'agentId': agentId,
             },
             errors: {
-                400: `Bad credentials`,
-                401: `Unauthorized`,
-            },
-        });
-    }
-    /**
-     * Delete AI agent
-     * @param agentId
-     * @returns void
-     * @throws ApiError
-     */
-    public static deleteAiAgentAgents(
-        agentId: string,
-    ): CancelablePromise<void> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/ai-agent/agents/{agentId}',
-            path: {
-                'agentId': agentId,
-            },
-            errors: {
-                400: `Bad credentials`,
-                401: `Unauthorized`,
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
             },
         });
     }
@@ -89,8 +68,50 @@ export class AiAgentServiceService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `Bad credentials`,
-                401: `Unauthorized`,
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
+            },
+        });
+    }
+    /**
+     * Delete AI agent
+     * @param agentId
+     * @returns void
+     * @throws ApiError
+     */
+    public static deleteAiAgentAgents(
+        agentId: string,
+    ): CancelablePromise<void> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/ai-agent/agents/{agentId}',
+            path: {
+                'agentId': agentId,
+            },
+            errors: {
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
+            },
+        });
+    }
+    /**
+     * Get agents related with user
+     * @param userId
+     * @returns AiAgentDto List of agents related to user
+     * @throws ApiError
+     */
+    public static getAiAgentUsersAgents(
+        userId: string,
+    ): CancelablePromise<Array<AiAgentDto>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/ai-agent/users/{userId}/agents',
+            path: {
+                'userId': userId,
+            },
+            errors: {
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
             },
         });
     }
@@ -110,8 +131,8 @@ export class AiAgentServiceService {
                 'userId': userId,
             },
             errors: {
-                400: `Bad credentials`,
-                401: `Unauthorized`,
+                400: `Incorrect credentials or bad request`,
+                401: `Access token can't be updated or unauthorized access`,
             },
         });
     }

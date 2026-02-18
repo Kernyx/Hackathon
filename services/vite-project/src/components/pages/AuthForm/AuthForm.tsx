@@ -64,7 +64,13 @@ const AuthForm: React.FC = () => {
     }, [isInitialLoading]);
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        
+
+        // УДАЛИТЬ В ДЕПОЛЕ
+        const MY_DOMAIN = "https://api.besthackaton.duckdns.org/api/v1";
+        OpenAPI.BASE = MY_DOMAIN;
+        AuditAPI.BASE = MY_DOMAIN;
+        // УДАЛИТЬ В ДЕПЛОЕ
+
         setEmailError(null);
         setPasswordError(null);
         setServerError(null);

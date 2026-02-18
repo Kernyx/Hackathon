@@ -4,3 +4,7 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
+rsa:
+  public-key: classpath:token/public.pem
+  private-key: classpath:token/private.pem

@@ -1,3 +1,4 @@
+// src/lib/storage.ts
 import type { AgentData } from "../components/AgentDrawer";
 
 export const LS_KEY = "ai_agents_data";
@@ -19,29 +20,48 @@ export const getStoredAgents = (): AgentData[] => {
   return data ? JSON.parse(data) : [];
 };
 
+export const getAgentsFromStorage = getStoredAgents;
+
+// Сохранение одного агента (при создании/редактировании)
 export const saveAgentToStorage = (agent: any) => {
   try {
-    // 1. Достаем старые данные
     const existingData = localStorage.getItem(LS_KEY);
     const agents = existingData ? JSON.parse(existingData) : [];
-    
+
     if (!agent.ownerId) {
-        agent.ownerId = localStorage.getItem(USER_ID_KEY);
+      agent.ownerId = localStorage.getItem(USER_ID_KEY);
     }
-    // 2. Проверяем, нет ли уже агента с таким ID, чтобы не плодить дубликаты
+
+    // Новые агенты помечаем как НЕ синхронизированные
+    if (agent.isSynced === undefined) {
+      agent.isSynced = false;
+    }
+
     const index = agents.findIndex((a: any) => a.id === agent.id);
-    
+
     if (index !== -1) {
-      agents[index] = agent; // Обновляем
+      agents[index] = { ...agents[index], ...agent };
     } else {
-      agents.push(agent); // Добавляем нового
+      agents.push(agent);
     }
-    
-    // 3. Сохраняем обратно в строку
+
     localStorage.setItem(LS_KEY, JSON.stringify(agents));
-    console.log("Записано в LocalStorage успешно!");
   } catch (e) {
     console.error("Ошибка записи в LS:", e);
+  }
+};
+
+// Сохранение всего списка (при загрузке с сервера)
+export const saveAgentsToStorage = (agents: AgentData[]) => {
+  try {
+    // Помечаем все загруженные агенты как синхронизированные
+    const syncedAgents = agents.map(agent => ({
+      ...agent,
+      isSynced: true
+    }));
+    localStorage.setItem(LS_KEY, JSON.stringify(syncedAgents));
+  } catch (e) {
+    console.error("Ошибка записи списка в LS:", e);
   }
 };
 

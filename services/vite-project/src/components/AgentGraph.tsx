@@ -1,288 +1,396 @@
-"use client";
+import * as React from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { AiAgentServiceService } from "../../api/services/AiAgentServiceService"
+import { saveAgentToStorage } from "@/lib/storage"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Check, AlertCircle } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Slider } from "@/components/ui/slider"
 
-import React, { useEffect, useRef, useState } from 'react';
-import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
-import { getStoredAgents } from '@/lib/storage';
+const AVATAR_OPTIONS = ["Alex", "Jordan", "Taylor", "Sasha", "Casey", "Mika", "Charlie"];
 
-// Небольшой коэффициент масштаба под размер экрана
-const getViewportScale = () => {
-  if (typeof window === "undefined") return 1;
-  const w = window.innerWidth;
-  if (w < 640) return 0.9;        // мобильные — чуть компактнее
-  if (w < 1024) return 1;         // планшеты / малые десктопы
-  if (w < 1440) return 1.1;       // обычные десктопы
-  return 1.2;                     // большие мониторы — чуть крупнее
-};
-
-interface AgentNode extends NodeObject {
-  id: string;
+// Типы UI (внутренние)
+export type AgentData = {
+  id?: string;
   name: string;
-  avatarSeed?: string;
-  role?: string;
-  img?: HTMLImageElement;
-  val?: number;
-}
-
-interface AgentLink {
-  source: string | AgentNode;
-  target: string | AgentNode;
-  message?: string;
-}
-
-interface GraphData {
-  nodes: AgentNode[];
-  links: AgentLink[];
-}
-
-interface AgentGraphProps {
-  onNodeSelect?: (node: AgentNode) => void;
-}
-
-const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
-  const graphRef = useRef<ForceGraphMethods<AgentNode, AgentLink>>(undefined);
-  const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
-  const [isMounted, setIsMounted] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(false);
-
-  // Функция "выстрела" сообщением
-  const emitMessage = (sourceId: string, targetId: string) => {
-    if (!graphRef.current) return;
-    
-    const link = data.links.find(l => {
-      const sId = typeof l.source === 'object' ? (l.source as any).id : l.source;
-      const tId = typeof l.target === 'object' ? (l.target as any).id : l.target;
-      return sId === sourceId && tId === targetId;
-    });
-
-    if (link) {
-      // Ставим временный текст для визуала
-      link.message = "DATA PACKET"; 
-      graphRef.current.emitParticle(link);
-      
-      // Стираем текст через 2 секунды, чтобы не засирать экран
-      setTimeout(() => { link.message = ""; }, 2000);
-    }
+  avatarSeed: string;
+  role: string;
+  male: boolean;
+  age: string | number;
+  interests: string;
+  traits: {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
   };
+}
 
-  // Интервал рандомных сообщений
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (data.links.length > 0) {
-        const randomLink = data.links[Math.floor(Math.random() * data.links.length)];
-        const s = randomLink.source as AgentNode;
-        const t = randomLink.target as AgentNode;
-
-        if (s?.id && t?.id) {
-          emitMessage(s.id, t.id);
-        }
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [data]);
-
-  // Загрузка данных
-  useEffect(() => {
-    setIsMounted(true);
-    const agents = getStoredAgents();
-    if (agents.length === 0) {
-      setIsEmpty(true);
-      return;
-    }
-    setIsEmpty(false);
-
-    const nodes: AgentNode[] = agents
-      .filter(agent => agent.id)
-      .map(agent => ({
-        id: agent.id!,
-        name: agent.name || "Unknown",
-        avatarSeed: agent.avatarSeed || agent.name,
-        role: agent.role || "Agent",
-        val: 1
-      }));
-
-    const links: AgentLink[] = [];
-    if (nodes.length > 1) {
-      for (let i = 0; i < nodes.length; i++) {
-        const targetIndex = (i + 1) % nodes.length;
-        links.push({
-          source: nodes[i].id,
-          target: nodes[targetIndex].id,
-          message: ""
-        });
-      }
-    }
-    setData({ nodes, links });
-  }, []);
-
-  // Авто-зум
-  useEffect(() => {
-    if (graphRef.current && data.nodes.length > 0) {
-      setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 300);
-      }, 500);
-    }
-  }, [data]);
-
-  // Длина рёбер (разлёт нод) в зависимости от количества агентов
-  useEffect(() => {
-    if (!graphRef.current || data.nodes.length === 0) return;
-    const g = graphRef.current;
-    const nodeCount = data.nodes.length;
-
-    const linkForce = g.d3Force("link") as any;
-    if (linkForce && typeof linkForce.distance === "function") {
-      // Меньше агентов — больше длина рёбер, чтобы картинка была "воздушной".
-      const base = nodeCount <= 3 ? 220 :
-                   nodeCount <= 6 ? 180 :
-                   nodeCount <= 12 ? 140 :
-                   110;
-      linkForce.distance(base);
-      g.d3ReheatSimulation();
-    }
-  }, [data.nodes.length]);
-
-  /*
-  // Загрузка аватаров
-  useEffect(() => {
-    data.nodes.forEach(node => {
-      if (!node.img) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
-        img.onload = () => { 
-          node.img = img; 
-        };
-        img.onerror = () => {
-          console.error(`Failed to load avatar for ${node.name}`);
-        };
-      }
-    });
-  }, [data.nodes]);
-  */
-
-  const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const viewportScale = getViewportScale();
-    const baseSize = 12 * viewportScale;
-    const size = baseSize;
-    const { x, y, name, img } = node;
-    
-    // Тело узла
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, 2 * Math.PI, false);
-    ctx.fillStyle = '#4f46e5';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 2 / globalScale;
-    ctx.stroke();
-
-    /*
-    // Аватар
-    if (img && img.complete) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(x, y, size - 1, 0, 2 * Math.PI, false);
-      ctx.clip();
-      ctx.drawImage(img, x - size, y - size, size * 2, size * 2);
-      ctx.restore();
-    }
-    */
-
-    // Текст имени
-    const fontSize = Math.max((14 * viewportScale) / globalScale, 7);
-    ctx.font = `${fontSize}px Inter, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(243, 244, 246, 0.95)';
-    ctx.fillText(name, x, y + size + 4 * viewportScale);
-  };
-
-  const drawLinkCanvasObject = (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const label = link.message;
-    if (!label) return;
-
-    const viewportScale = getViewportScale();
-    const nodeCount = data.nodes.length;
-
-    // Прячем текст, когда граф сильно отдалён, чтобы не было каши.
-    // Но для маленьких графов (<= 4 агента) всегда показываем.
-    if (nodeCount > 4 && globalScale < 0.7) return;
-
-    const start = link.source;
-    const end = link.target;
-    if (typeof start !== 'object' || typeof end !== 'object') return;
-
-    // Вычисляем угол и центр
-    const base = nodeCount <= 3 ? 18 : 14;
-    const max = nodeCount <= 3 ? 22 : 18;
-    const fontSize = Math.max(Math.min((base * viewportScale) / globalScale, max), 10);
-    const relLink = { x: end.x - start.x, y: end.y - start.y };
-    let textAngle = Math.atan2(relLink.y, relLink.x);
-    if (textAngle > Math.PI / 2) textAngle = -(Math.PI - textAngle);
-    if (textAngle < -Math.PI / 2) textAngle = -(-Math.PI - textAngle);
-
-    ctx.save();
-    // Переносим контекст в центр ребра
-    ctx.translate(start.x + relLink.x / 2, start.y + relLink.y / 2);
-    ctx.rotate(textAngle);
-
-    ctx.font = `${fontSize}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = 'rgba(129, 140, 248, 0.95)';
-    
-    // Рисуем текст в 0,0 (так как мы уже сделали translate)
-    ctx.fillText(label, 0, -2);
-    ctx.restore();
-  };
-
-  if (!isMounted) return null;
-
-  if (isEmpty) {
-    return (
-      <div className="flex items-center justify-center h-full w-full">
-        <div className="text-center text-muted-foreground">
-          <p className="text-lg font-medium">No agents found</p>
-          <p className="text-sm">Create some agents to see the graph</p>
-        </div>
-      </div>
-    );
-  }
-
-  const nodeCountForLinks = data.nodes.length;
-  return (
-    <div className="w-full h-full min-h-150 rounded-xl overflow-hidde relative">
-      <ForceGraph2D
-        ref={graphRef}
-        graphData={data}
-        backgroundColor="rgba(0,0,0,0)"
-        nodeCanvasObject={drawNode}
-        linkCanvasObject={drawLinkCanvasObject}
-        linkCanvasObjectMode={() => 'after'}
-        
-        // Физика
-        d3AlphaDecay={0.03}
-        d3VelocityDecay={0.3}
-        cooldownTicks={100}
-        
-        // Связи и частицы
-        linkColor={() => 'rgba(156, 163, 175, 0.2)'}
-        linkWidth={(link) => {
-          // Длина ребра управляется через силу "link". Здесь увеличиваем только
-          // визуальную толщину чуть-чуть для малых графов.
-          const count = nodeCountForLinks;
-          if (count <= 3) return 3;
-          if (count <= 7) return 2;
-          return 1.2;
-        }}
-        linkDirectionalParticles={0}
-        linkDirectionalParticleWidth={2.5}
-        linkDirectionalParticleSpeed={0.01}
-        linkDirectionalParticleColor={() => "#818cf8"}
-
-        onNodeClick={(node) => onNodeSelect?.(node as AgentNode)}
-      />
-    </div>
-  );
+// Константы пресетов
+const PERSONALITY_PRESETS = {
+  Analyst: { openness: 80, conscientiousness: 90, extraversion: 40, agreeableness: 50, neuroticism: 30 },
+  Diplomat: { openness: 70, conscientiousness: 60, extraversion: 70, agreeableness: 90, neuroticism: 40 },
+  Aggressor: { openness: 50, conscientiousness: 70, extraversion: 80, agreeableness: 20, neuroticism: 60 },
+  Thinker: { openness: 95, conscientiousness: 40, extraversion: 20, agreeableness: 40, neuroticism: 50 },
+  Custom: { openness: 50, conscientiousness: 50, extraversion: 50, agreeableness: 50, neuroticism: 50 },
 };
 
-export default AgentGraph;
+type PersonalityRole = keyof typeof PERSONALITY_PRESETS;
+
+const UI_ROLE_TO_API_ENUM: Record<string, string> = {
+  "Custom": "INDIVIDUAL",
+  "Analyst": "ALTRUIST",
+  "Diplomat": "MACHIAVELLIAN",
+  "Aggressor": "REBEL",
+  "Thinker": "STOIC"
+};
+
+type AgentDrawerProps = {
+  agent: AgentData | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSaveSuccess: () => void
+}
+
+export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentDrawerProps) {
+  const isMobile = useIsMobile()
+
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [serverError, setServerError] = React.useState<string | null>(null);
+
+  const [name, setName] = React.useState("");
+  const [age, setAge] = React.useState<string | number>("");
+  const [interests, setInterests] = React.useState("");
+  const [role, setRole] = React.useState<PersonalityRole>("Custom");
+  const [selectedAvatar, setSelectedAvatar] = React.useState("Alex");
+  const [traits, setTraits] = React.useState(PERSONALITY_PRESETS.Custom);
+  const [male, setMale] = React.useState(true);
+
+  React.useEffect(() => {
+    if (open) {
+      setServerError(null);
+
+      if (agent) {
+        setName(agent.name || "");
+        setAge(agent.age || "");
+        setMale(agent.male ?? true);
+        setInterests(agent.interests || "");
+        setSelectedAvatar(agent.avatarSeed || "Alex");
+
+        const mappedRole = agent.role && agent.role in PERSONALITY_PRESETS
+          ? (agent.role as PersonalityRole)
+          : "Custom";
+
+        setRole(mappedRole);
+        setTraits(agent.traits || PERSONALITY_PRESETS[mappedRole]);
+      } else {
+        setName("");
+        setAge("");
+        setMale(true);
+        setInterests("");
+        setSelectedAvatar("Alex");
+        setRole("Custom");
+        setTraits(PERSONALITY_PRESETS.Custom);
+      }
+    }
+  }, [agent, open]);
+
+  const handleRoleChange = (newRole: PersonalityRole) => {
+    setRole(newRole);
+    if (newRole !== "Custom") setTraits(PERSONALITY_PRESETS[newRole]);
+  };
+
+  const handleTraitChange = (trait: string, value: number[]) => {
+    setTraits(prev => ({ ...prev, [trait]: value[0] }));
+    setRole("Custom");
+  };
+
+  const handleSaveClick = async () => {
+    setIsLoading(true);
+    setServerError(null);
+    try {
+      const userId = localStorage.getItem("userId");
+
+      // 1. Проверяем наличие в localStorage, а не только наличие объекта agent
+      const localAgents = getAgentsFromStorage() || [];
+      const existsInStorage = agent?.id ? localAgents.some((a: any) => a.id === agent.id) : false;
+      const isEdit = existsInStorage;
+
+      if (!userId && !isEdit) {
+        setServerError("Пользователь не авторизован (отсутствует userId).");
+        setIsLoading(false);
+        return;
+      }
+
+      const newAgentData: AgentData = {
+        id: agent?.id || crypto.randomUUID(),
+        name,
+        age,
+        male,
+        interests,
+        avatarSeed: selectedAvatar,
+        role,
+        traits,
+        mood: agent?.mood || "neutral"
+      };
+
+      const requestBody: any = {
+        userId: userId,
+        username: name,
+        photoLink: selectedAvatar,
+        isMale: male,
+        age: Number(age),
+        interests,
+        personalityType: UI_ROLE_TO_API_ENUM[role] ?? "INDIVIDUAL",
+        traits: traits,
+        additionalInformation: ""
+      };
+
+      if (isEdit) {
+        await AiAgentServiceService.putAiAgentAgents(agent!.id!, requestBody);
+      } else {
+        await AiAgentServiceService.postAiAgentAgents(requestBody);
+      }
+
+      // 2. Обновляем локальное хранилище
+      saveAgentToStorage(newAgentData);
+
+      onSaveSuccess();
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error("Ошибка при сохранении агента:", err);
+      const message = err?.response?.data?.message || err?.message || "Не удалось сохранить агента";
+      setServerError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="h-full w-full sm:max-w-100 ml-auto rounded-none shadow-2xl bg-card">
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>{agent?.id ? "Редактирование" : "Новый агент"}</DrawerTitle>
+          <DrawerDescription>Настройка параметров ИИ-агента</DrawerDescription>
+        </DrawerHeader>
+
+        {serverError && (
+          <div className="px-4 pb-2 animate-in fade-in slide-in-from-top-2">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Ошибка</AlertTitle>
+              <AlertDescription>
+                {serverError}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {!isMobile && <Separator className="opacity-50" />}
+
+          <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="name">Имя агента</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Введите имя..."
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex flex-col gap-3">
+                <Label htmlFor="type">Личность</Label>
+                <Select value={role} onValueChange={handleRoleChange} disabled={isLoading}>
+                  <SelectTrigger id="type" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Custom">Индивидуальный (пользовательский)</SelectItem>
+                    <SelectItem value="Analyst">Альтруист (добрый)</SelectItem>
+                    <SelectItem value="Diplomat">Макиавеллист (злой)</SelectItem>
+                    <SelectItem value="Aggressor">Бунтарь (непредсказуемый)</SelectItem>
+                    <SelectItem value="Thinker">Стоик (хладнокровный)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-6 pt-2 pb-8 touch-none">
+                <Label className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Характеристики (OCEAN)
+                </Label>
+
+                <div className="space-y-3">
+                   <div className="flex justify-between text-xs">
+                    <span className="font-medium">O (Openness)</span>
+                    <span className="text-primary font-mono">{traits.openness}%</span>
+                   </div>
+                   <Slider
+                    disabled={isLoading}
+                    value={[traits.openness]} max={100} step={1}
+                    onValueChange={(val) => handleTraitChange('openness', val)}
+                   />
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-xs">
+                        <span className="font-medium">C (Conscientiousness) — Добросовестность</span>
+                        <span className="text-primary font-mono">{traits.conscientiousness}%</span>
+                    </div>
+                    <Slider
+                        disabled={isLoading}
+                        value={[traits.conscientiousness]}
+                        max={100} step={1}
+                        onValueChange={(val) => handleTraitChange('conscientiousness', val)}
+                    />
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-xs">
+                        <span className="font-medium">E (Extraversion) — Экстраверсия</span>
+                        <span className="text-primary font-mono">{traits.extraversion}%</span>
+                    </div>
+                    <Slider
+                        disabled={isLoading}
+                        value={[traits.extraversion]}
+                        max={100} step={1}
+                        onValueChange={(val) => handleTraitChange('extraversion', val)}
+                    />
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-xs">
+                        <span className="font-medium">A (Agreeableness) — Доброжелательность</span>
+                        <span className="text-primary font-mono">{traits.agreeableness}%</span>
+                    </div>
+                    <Slider
+                        disabled={isLoading}
+                        value={[traits.agreeableness]}
+                        max={100} step={1}
+                        onValueChange={(val) => handleTraitChange('agreeableness', val)}
+                    />
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-xs">
+                        <span className="font-medium">N (Neuroticism) — Невротизм</span>
+                        <span className="text-primary font-mono">{traits.neuroticism}%</span>
+                    </div>
+                    <Slider
+                        disabled={isLoading}
+                        value={[traits.neuroticism]}
+                        max={100} step={1}
+                        onValueChange={(val) => handleTraitChange('neuroticism', val)}
+                    />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Label htmlFor="age">Возраст</Label>
+                <Input
+                  id="age"
+                  value={age}
+                  disabled={isLoading}
+                  onChange={(e) => {
+                      const val = e.target.value;
+                      const onlyNumbers = val.replace(/\D/g, "");
+                      setAge(onlyNumbers);
+                    }}
+                  placeholder="Введите возраст..."
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="sex">Пол</Label>
+              <RadioGroup
+                disabled={isLoading}
+                value={male ? "man" : "female"}
+                className="w-fit flex flex-wrap"
+                onValueChange={(val) => setMale(val === "man")}
+              >
+                <div className="flex items-center gap-3">
+                  <RadioGroupItem value="man" id="r1" />
+                  <Label htmlFor="r1">Мужской</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <RadioGroupItem value="female" id="r2" />
+                  <Label htmlFor="r2">Женский</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="interests">Интересы</Label>
+              <Input
+                id="interests"
+                value={interests}
+                disabled={isLoading}
+                onChange={(e) => setInterests(e.target.value)}
+                placeholder="Введите интересы..."
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 pb-10">
+              <Label>Фото (выберите стиль)</Label>
+              <div className="flex flex-wrap gap-3">
+                {AVATAR_OPTIONS.map((seed) => (
+                  <div
+                    key={seed}
+                    onClick={() => !isLoading && setSelectedAvatar(seed)}
+                    className={`relative shrink-0 cursor-pointer rounded-full border-2 transition-all hover:scale-105 ${
+                      selectedAvatar === seed ? "border-primary ring-2 ring-primary/20" : "border-transparent"
+                    } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <img
+                      src={`https://api.dicebear.com/7.x/notionists/svg?seed=  ${seed}`}
+                      alt={seed}
+                      className="h-12 w-12 rounded-full bg-muted"
+                    />
+                    {selectedAvatar === seed && (
+                      <div className="absolute -right-1 -top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
+                        <Check className="h-3 w-3" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <DrawerFooter className="mt-auto">
+          <Button className="w-full" onClick={handleSaveClick} disabled={isLoading}>
+            {isLoading ? "Сохранение..." : "Сохранить"}
+          </Button>
+          <DrawerClose asChild>
+            <Button variant="ghost" className="w-full" disabled={isLoading}>Отмена</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+export default AgentDrawer;
