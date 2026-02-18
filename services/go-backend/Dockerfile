@@ -5,12 +5,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd
 
 # Runtime stage
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates wget \
+RUN apk add --no-cache ca-certificates wget redis \
     && addgroup -S app && adduser -S app -G app
 
 COPY --from=builder /app/main /main

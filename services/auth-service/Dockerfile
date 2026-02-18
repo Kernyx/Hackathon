@@ -7,10 +7,11 @@ ARG DB_PASSWORD
 ARG DB_NAME=hackathon_db
 
 WORKDIR /app
-COPY . .
 
+COPY pom.xml ./
 RUN mvn dependency:go-offline -B
 
+COPY src ./src
 RUN mvn package -B -DskipTests \
        -Dprop.skipLoadProperties=true \
        -DDB_HOST="${DB_HOST}" \

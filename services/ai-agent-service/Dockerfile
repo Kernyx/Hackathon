@@ -6,12 +6,10 @@ ARG DB_PASSWORD
 ARG DB_NAME=hackathon_db
 
 WORKDIR /app
-COPY . .
-
-WORKDIR /app/services/ai-agent-service
-
+COPY pom.xml ./
 RUN mvn dependency:go-offline -B
 
+COPY src ./src
 RUN mvn package -B -DskipTests \
        -Dprop.skipLoadProperties=true \
        -DDB_HOST="${DB_HOST}" \
@@ -24,7 +22,7 @@ FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
-COPY --from=builder /app/services/ai-agent-service/target/*.jar app.jar
+COPY --from=builder /app/target/*.jar app.jar
 
 RUN chown app:app app.jar
 USER app

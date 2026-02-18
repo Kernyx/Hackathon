@@ -157,8 +157,8 @@ services:
 
   java-backend:
     build:
-      context: .
-      dockerfile: services/ai-agent-service/Dockerfile
+      context: ./services/ai-agent-service
+      dockerfile: Dockerfile
       network: host
       args:
         DB_HOST: 10.66.66.1

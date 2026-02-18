@@ -3,10 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npx vite build
+RUN npm run build
 
 # Runtime stage — nginx для отдачи статики
 FROM nginx:1.27-alpine
