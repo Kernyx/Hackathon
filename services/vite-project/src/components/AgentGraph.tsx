@@ -42,6 +42,7 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   const graphRef = useRef<ForceGraphMethods<AgentNode, AgentLink>>(undefined);
   const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
   const [isMounted, setIsMounted] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   // Функция "выстрела" сообщением
   const emitMessage = (sourceId: string, targetId: string) => {
@@ -83,7 +84,11 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   useEffect(() => {
     setIsMounted(true);
     const agents = getStoredAgents();
-    if (agents.length === 0) return;
+    if (agents.length === 0) {
+      setIsEmpty(true);
+      return;
+    }
+    setIsEmpty(false);
 
     const nodes: AgentNode[] = agents
       .filter(agent => agent.id)
@@ -221,6 +226,17 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   };
 
   if (!isMounted) return null;
+
+  if (isEmpty) {
+    return (
+      <div className="flex items-center justify-center h-full w-full">
+        <div className="text-center text-muted-foreground">
+          <p className="text-lg font-medium">No agents found</p>
+          <p className="text-sm">Create some agents to see the graph</p>
+        </div>
+      </div>
+    );
+  }
 
   const nodeCountForLinks = data.nodes.length;
   return (
