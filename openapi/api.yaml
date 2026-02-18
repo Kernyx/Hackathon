@@ -24,6 +24,16 @@ paths:
   /audit/events:
     $ref: './components/audit.yaml#/paths/~1events'
 
+  # ML AI Service
+  /ml/users/{userId}/session:
+    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1session'
+  /ml/users/{userId}/session/settings:
+    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1session~1settings'
+  /ml/users/{userId}/messages:
+    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1messages'
+  /ml/users/{userId}/conversation:
+    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1conversation'
+
 components:
   schemas:
     ErrorCode:
@@ -42,8 +52,33 @@ components:
     PersonalityType:
       $ref: './components/ai-agent.yaml#/components/schemas/PersonalityType'
     
-    AiAgent:
-      $ref: './components/audit.yaml#/components/schemas/AiAgent'
+    # Audit Service schemas
+    AuditEvent:
+      $ref: './components/audit.yaml#/components/schemas/AuditEvent'
+    AuditSourceAgent:
+      $ref: './components/audit.yaml#/components/schemas/SourceAgent'
+    AuditTargetAgent:
+      $ref: './components/audit.yaml#/components/schemas/TargetAgent'
+    AuditMood:
+      $ref: './components/audit.yaml#/components/schemas/Mood'
+    AuditSimulationContext:
+      $ref: './components/audit.yaml#/components/schemas/SimulationContext'
+
+    # ML AI Service schemas
+    SessionCreateRequest:
+      $ref: './components/ml-service.yaml#/components/schemas/SessionCreateRequest'
+    SessionSettingsRequest:
+      $ref: './components/ml-service.yaml#/components/schemas/SessionSettingsRequest'
+    SessionSettingsResponse:
+      $ref: './components/ml-service.yaml#/components/schemas/SessionSettingsResponse'
+    SessionInfo:
+      $ref: './components/ml-service.yaml#/components/schemas/SessionInfo'
+    MessageRequest:
+      $ref: './components/ml-service.yaml#/components/schemas/MessageRequest'
+    MessageResponse:
+      $ref: './components/ml-service.yaml#/components/schemas/MessageResponse'
+    ConversationResponse:
+      $ref: './components/ml-service.yaml#/components/schemas/ConversationResponse'
 
   responses:
     BadRequest:

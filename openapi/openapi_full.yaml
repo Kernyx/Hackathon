@@ -174,68 +174,248 @@ paths:
     post:
       tags:
         - Audit Service
-      summary: Publish AI log
+      summary: Отправить событие в аудит
+      description: |
+        Отправляет полное событие симуляции в систему аудита.
+        На каждом тике ML-сервис отправляет действия агентов.
+        JWT токен в заголовке Authorization содержит userId.
+      operationId: publishEvent
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                event_type:
-                  type: string
-                  description: Тип события для ML обработки
-                source_agent:
-                  $ref: '#/components/schemas/AiAgent'
-                  description: ИИ агент - инициатор общения
-                target_agents:
-                  type: array
-                  description: ИИ агент(ы) - получатели сообщения
-                  items:
-                    $ref: '#/components/schemas/AiAgent'
-                timestamp:
-                  type: string
-                  format: date-time
-                  description: Время события
-                data:
-                  type: object
-                  description: Данные события
-                  properties:
-                    message:
-                      type: string
-                      description: Текст сообщения
-                      examples:
-                        - Я сварил пельмени
-                    mood:
-                      type: string
-                      description: Настроение агента для ML обработки
-                      examples:
-                        - happy
-                  required:
-                    - message
+              $ref: '#/components/schemas/AuditEvent'
+            example:
+              event_type: "message_sent"
+              source_agent:
+                agent_id: "agent_1"
+                name: "Алиса"
+                mood:
+                  dominant_emotion: "спокойствие"
+                  happiness: 0.3
+                  energy: 0.7
+                  stress: 0.1
+                  anger: 0.0
+                  fear: 0.0
+                relationships:
+                  agent_2:
+                    value: 0.15
+                    display_name: "Борис"
+                  agent_3:
+                    value: -0.10
+                    display_name: "Вика"
+                activity:
+                  talkativeness: 0.65
+                  messages_spoken: 12
+                plan:
+                  goal: "Построить укрытие"
+                  current_step: 2
+              target_agents:
+                - agent_id: "agent_2"
+                  name: "Борис"
+                - agent_id: "agent_3"
+                  name: "Вика"
+              timestamp: "2026-02-17T22:25:26.485Z"
+              data:
+                message: "Давайте построим укрытие из пальм!"
+                tick: 5
+                is_initiative: true
+                action_result: null
+                sentiments:
+                  agent_2:
+                    delta: 0.05
+                    reason: "позитив: 'согласен'"
+              simulation_context:
+                scenario_name: "Необитаемый остров"
+                current_topic: "как построить укрытие из пальм?"
+                phase: "decide"
       responses:
         '202':
-          description: Event accepted
+          description: Событие принято
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    examples:
-                      - accepted
-                  type:
-                    type: string
-                    examples:
-                      - message_sent
-                  timestamp:
-                    type: string
-                    format: date-time
+                $ref: '#/components/schemas/AuditEventAccepted'
         '400':
-          description: Invalid request
+          description: Невалидный запрос
+        '401':
+          description: Не авторизован
         '429':
-          description: Too many events
+          description: Слишком много запросов
+
+  # ── ML AI Service ──────────────────────────────────────────
+
+  /ml/users/{userId}/session:
+    post:
+      tags:
+        - ML AI Service
+      summary: Создать сессию
+      description: Создаёт агентов, выбирает сценарий, запускает фоновую симуляцию.
+      operationId: createSession
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreateRequest'
+      responses:
+        '200':
+          description: Сессия создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '400':
+          description: Неизвестный сценарий или расовый пресет
+        '500':
+          description: Внутренняя ошибка
+    get:
+      tags:
+        - ML AI Service
+      summary: Получить информацию о сессии
+      operationId: getSession
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Информация о сессии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '404':
+          description: Сессия не найдена
+
+  /ml/users/{userId}/session/settings:
+    patch:
+      tags:
+        - ML AI Service
+      summary: Изменить настройки сессии
+      description: |
+        Обновляет скорость общения агентов — задержку в секундах между сообщениями.
+        Фронтенд отправляет поле speed_seconds (от 0.5 до 60 секунд).
+      operationId: updateSessionSettings
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionSettingsRequest'
+            examples:
+              fast:
+                summary: Быстрая скорость
+                value:
+                  speed_seconds: 1.0
+              normal:
+                summary: Нормальная скорость
+                value:
+                  speed_seconds: 5.0
+              slow:
+                summary: Медленная скорость
+                value:
+                  speed_seconds: 15.0
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSettingsResponse'
+        '400':
+          description: Невалидные параметры
+        '404':
+          description: Сессия не найдена
+
+  /ml/users/{userId}/messages:
+    post:
+      tags:
+        - ML AI Service
+      summary: Отправить сообщение агентам
+      description: |
+        Отправляет сообщение от пользователя. Агенты генерируют ответы.
+        target_agent — для личного сообщения одному агенту (опционально).
+      operationId: sendMessage
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MlMessageRequest'
+      responses:
+        '200':
+          description: Ответы агентов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlMessageResponse'
+        '404':
+          description: Сессия или агент не найден
+        '500':
+          description: Ошибка генерации ответа
+
+  /ml/users/{userId}/conversation:
+    get:
+      tags:
+        - ML AI Service
+      summary: Получить историю сообщений (polling)
+      description: |
+        Возвращает историю сообщений для polling.
+        after_tick=-1 → все; after_tick=N → только новые после тика N.
+      operationId: getConversation
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: after_tick
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: -1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlConversationResponse'
+        '404':
+          description: Сессия не найдена
 components:
   schemas:
     ErrorCode:
@@ -407,6 +587,415 @@ components:
           description: Имя агента
           examples:
             - ИИ агент Габена
+
+    # ── ML AI Service schemas ──
+
+    SessionCreateRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          description: Ключ сценария
+          default: desert_island
+          enum:
+            - desert_island
+            - space_station
+            - zombie_apocalypse
+            - medieval_tavern
+        race_preset:
+          type: string
+          description: Ключ расового пресета
+          default: humans
+          enum:
+            - humans
+            - fantasy_party
+            - mixed_survival
+            - classic_party
+
+    SessionSettingsRequest:
+      type: object
+      required:
+        - speed_seconds
+      properties:
+        speed_seconds:
+          type: number
+          format: float
+          description: |
+            Задержка между сообщениями агентов в секундах.
+            Минимум 0.5, максимум 60.
+          minimum: 0.5
+          maximum: 60.0
+          default: 5.0
+          examples:
+            - 1.0
+            - 5.0
+            - 15.0
+
+    SessionSettingsResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        speed_seconds:
+          type: number
+          format: float
+          description: Установленная задержка (сек)
+        message:
+          type: string
+          examples:
+            - "Скорость обновлена: 5.0 сек между сообщениями"
+
+    SessionInfo:
+      type: object
+      properties:
+        user_id:
+          type: string
+        is_active:
+          type: boolean
+        scenario:
+          type: string
+          examples:
+            - Необитаемый остров
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/MlAgentInfo'
+        tick:
+          type: integer
+        available_scenarios:
+          type: array
+          items:
+            type: string
+        available_race_presets:
+          type: array
+          items:
+            type: string
+
+    MlAgentInfo:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        name:
+          type: string
+          examples:
+            - Алиса
+        race:
+          type: string
+          examples:
+            - human
+        race_emoji:
+          type: string
+          examples:
+            - "[Чел]"
+        race_name:
+          type: string
+          examples:
+            - Человек
+        personality:
+          type: string
+          examples:
+            - "Альтруист (добрый)"
+        mood:
+          type: string
+          examples:
+            - решимость
+        is_male:
+          type: boolean
+        age:
+          type: integer
+
+    MlMessageRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        target_agent:
+          type: string
+          nullable: true
+          description: Имя агента для личного сообщения. null = всем.
+
+    MlMessageResponse:
+      type: object
+      properties:
+        user_message:
+          type: string
+        target:
+          type: string
+          description: '"all" или имя агента'
+        responses:
+          type: array
+          items:
+            $ref: '#/components/schemas/MlAgentResponse'
+        tick:
+          type: integer
+        session_id:
+          type: string
+
+    MlAgentResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        name:
+          type: string
+        text:
+          type: string
+        tick:
+          type: integer
+        race:
+          type: string
+        race_emoji:
+          type: string
+        mood:
+          type: string
+
+    MlConversationResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/MlConversationEntry'
+        total:
+          type: integer
+        last_tick:
+          type: integer
+          description: Последний тик (передать как after_tick в следующем запросе)
+        simulation_running:
+          type: boolean
+
+    MlConversationEntry:
+      type: object
+      properties:
+        tick:
+          type: integer
+        agent_id:
+          type: string
+        name:
+          type: string
+        text:
+          type: string
+        is_event:
+          type: boolean
+          default: false
+        is_new_topic:
+          type: boolean
+          default: false
+
+    MlHealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        model:
+          type: string
+        llm_url:
+          type: string
+
+    # ── Audit Service schemas ──
+
+    AuditMood:
+      type: object
+      properties:
+        dominant_emotion:
+          type: string
+          examples:
+            - "спокойствие"
+        happiness:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        energy:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        stress:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        anger:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        fear:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+
+    AuditRelationship:
+      type: object
+      properties:
+        value:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        display_name:
+          type: string
+
+    AuditActivity:
+      type: object
+      properties:
+        talkativeness:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        messages_spoken:
+          type: integer
+          minimum: 0
+
+    AuditPlan:
+      type: object
+      properties:
+        goal:
+          type: string
+        current_step:
+          type: integer
+          minimum: 0
+
+    AuditSourceAgent:
+      type: object
+      required:
+        - agent_id
+        - name
+      properties:
+        agent_id:
+          type: string
+          examples:
+            - "agent_1"
+        name:
+          type: string
+          examples:
+            - "Алиса"
+        mood:
+          $ref: '#/components/schemas/AuditMood'
+        relationships:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AuditRelationship'
+        activity:
+          $ref: '#/components/schemas/AuditActivity'
+        plan:
+          $ref: '#/components/schemas/AuditPlan'
+
+    AuditTargetAgent:
+      type: object
+      required:
+        - agent_id
+        - name
+      properties:
+        agent_id:
+          type: string
+        name:
+          type: string
+
+    AuditSentimentChange:
+      type: object
+      properties:
+        delta:
+          type: number
+          format: float
+        reason:
+          type: string
+
+    AuditEventData:
+      type: object
+      properties:
+        message:
+          type: string
+        tick:
+          type: integer
+          minimum: 0
+        is_initiative:
+          type: boolean
+        action_result:
+          type: string
+          nullable: true
+        sentiments:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AuditSentimentChange'
+
+    AuditSimulationContext:
+      type: object
+      properties:
+        scenario_name:
+          type: string
+          examples:
+            - "Необитаемый остров"
+        current_topic:
+          type: string
+          nullable: true
+        phase:
+          type: string
+          enum:
+            - discuss
+            - decide
+            - act
+            - conclude
+
+    AuditEvent:
+      type: object
+      required:
+        - event_type
+        - source_agent
+        - timestamp
+      properties:
+        event_type:
+          type: string
+          enum:
+            - message_sent
+            - new_topic
+            - event_reaction
+        source_agent:
+          $ref: '#/components/schemas/AuditSourceAgent'
+        target_agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditTargetAgent'
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/AuditEventData'
+        simulation_context:
+          $ref: '#/components/schemas/AuditSimulationContext'
+
+    AuditEventAccepted:
+      type: object
+      properties:
+        status:
+          type: string
+          examples:
+            - "accepted"
+        type:
+          type: string
+          examples:
+            - "message_sent"
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен аутентификации (содержит userId)
+
   responses:
     BadRequest:
       description: Incorrect credentials
