@@ -102,7 +102,7 @@ func main() {
 	api := e.Group("/api/v1/audit")
 	api.Use(jwtMiddleware)
 
-	api.POST("/events", eventHandler.PostEvents)
+	e.POST("/api/v1/audit/events", eventHandler.PostEvents)
 	api.GET("/feed", feedHandler.GetFeed)
 	api.GET("/history", feedHandler.GetHistory)
 	api.GET("/agents/:agent_id/events", feedHandler.GetAgentEvents)
