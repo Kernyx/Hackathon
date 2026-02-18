@@ -49,7 +49,7 @@ besthackaton.duckdns.org {
     }
 
     handle /api/v1/ml* {
-        reverse_proxy ml-service:8083 {
+        reverse_proxy ml-service:8084 {
             transport http {
                 dial_timeout 10s
                 response_header_timeout 120s
@@ -170,7 +170,7 @@ api.besthackaton.duckdns.org {
             }
         }
 
-        reverse_proxy ml-service:8083 {
+        reverse_proxy ml-service:8084 {
             transport http {
                 dial_timeout 10s
                 response_header_timeout 120s
