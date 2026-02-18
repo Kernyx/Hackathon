@@ -142,15 +142,21 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
   }, [data.nodes.length]);
 
   // Загрузка аватаров
-  useEffect(() => {
-    data.nodes.forEach(node => {
-      if (!node.img) {
-        const img = new Image();
-        img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
-        img.onload = () => { node.img = img; };
-      }
-    });
-  }, [data.nodes]);
+useEffect(() => {
+  data.nodes.forEach(node => {
+    if (!node.img) {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // ← FIX!
+      img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
+      img.onload = () => { 
+        node.img = img; 
+      };
+      img.onerror = () => {
+        console.error(`Failed to load avatar for ${node.name}`);
+      };
+    }
+  });
+}, [data.nodes]);
 
   const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const viewportScale = getViewportScale();
