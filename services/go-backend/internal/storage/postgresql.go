@@ -143,7 +143,7 @@ func (p *PostgresStore) GetHistoryWithPagination(limit, offset int) ([]*openapi.
 
 	p.db.Model(&Event{}).Count(&total)
 
-	result := p.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&dbEvents)
+	result := p.db.Order("created_at ASC").Limit(limit).Offset(offset).Find(&dbEvents)
 	if result.Error != nil {
 		return nil, 0, result.Error
 	}
