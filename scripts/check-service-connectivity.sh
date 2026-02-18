@@ -1,5 +1,4 @@
 #!/bin/bash
-# Проверка межсервисного взаимодействия в Hackathon инфраструктуре
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -8,7 +7,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}🔗 ПРОВЕРКА МЕЖСЕРВИСНОГО ВЗАИМОДЕЙСТВИЯ${NC}"
+echo -e "${BLUE} ПРОВЕРКА МЕЖСЕРВИСНОГО ВЗАИМОДЕЙСТВИЯ${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
@@ -34,7 +33,7 @@ check_connectivity() {
 }
 
 # === ML SERVICE ===
-echo -e "${BLUE}📡 ML Service (hackathon-ml)${NC}"
+echo -e "${BLUE} ML Service (hackathon-ml)${NC}"
 
 # ML → Go (audit)
 check_connectivity "hackathon-ml" "go-backend" \
@@ -53,7 +52,7 @@ fi
 echo ""
 
 # === GO BACKEND ===
-echo -e "${BLUE}📡 Go Backend (hackathon-go)${NC}"
+echo -e "${BLUE} Go Backend (hackathon-go)${NC}"
 
 # Go → ML
 check_connectivity "hackathon-go" "ml-service" \
@@ -81,7 +80,7 @@ fi
 echo ""
 
 # === CADDY ===
-echo -e "${BLUE}📡 Caddy (hackathon-caddy)${NC}"
+echo -e "${BLUE} Caddy (hackathon-caddy)${NC}"
 
 # Caddy → ML
 check_connectivity "hackathon-caddy" "ml-service" \
@@ -111,7 +110,7 @@ check_connectivity "hackathon-caddy" "frontend" \
 echo ""
 
 # === JAVA BACKEND ===
-echo -e "${BLUE}📡 Java Backend (hackathon-java)${NC}"
+echo -e "${BLUE} Java Backend (hackathon-java)${NC}"
 
 # Java → Postgres (проверка порта)
 echo -n "  Java → Postgres: "
@@ -134,7 +133,7 @@ fi
 echo ""
 
 # === AUTH SERVICE ===
-echo -e "${BLUE}📡 Auth Service (hackathon-auth)${NC}"
+echo -e "${BLUE} Auth Service (hackathon-auth)${NC}"
 
 # Auth → Postgres (проверка порта)
 echo -n "  Auth → Postgres: "

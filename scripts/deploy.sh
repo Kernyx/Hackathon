@@ -78,13 +78,13 @@ log "🚀 Деплой запущен"
 # Анализ изменений (код уже обновлён через workflow или вручную)
 CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
 if [[ -z "$CHANGED" ]]; then
-    log "ℹ️ Нет изменений — проверка здоровья"
+    log "Нет изменений — проверка здоровья"
     docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | tee -a "$LOG_FILE" || true
     [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
     exit 0
 fi
 
-log "📝 Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
+log "Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
 
 # Маппинг директорий → сервисов compose
 SERVICES_MAP=(
@@ -98,7 +98,7 @@ SERVICES_MAP=(
 
 # Если изменился docker-compose.yml или .env — пропускаем (ручной деплой)
 if echo "$CHANGED" | grep -qE '^(docker-compose\.yml|\.env)$'; then
-    log "📝 Изменения в docker-compose.yml / .env — требуется ручной деплой, пропуск"
+    log "Изменения в docker-compose.yml / .env — требуется ручной деплой, пропуск"
 else
     # Точечная пересборка изменённых сервисов
     CHANGED_SERVICES=()
@@ -106,13 +106,13 @@ else
         dir="${mapping%%:*}"
         service="${mapping##*:}"
         if echo "$CHANGED" | grep -q "^${dir}/"; then
-            log "📝 Изменения в сервисе: ${service}"
+            log "Изменения в сервисе: ${service}"
             add_service "$service"
         fi
     done
 
     if [ "${#CHANGED_SERVICES[@]}" -gt 0 ]; then
-        log "🔄 Пересборка: ${CHANGED_SERVICES[*]}"
+        log "Пересборка: ${CHANGED_SERVICES[*]}"
         build_with_recovery "COMPOSE_PARALLEL_LIMIT=${COMPOSE_PARALLEL_LIMIT} docker compose up -d --build ${CHANGED_SERVICES[*]}"
     fi
     log "✅ Деплой завершён"

@@ -24,9 +24,9 @@ else
 fi
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}🏥  HACKATHON INFRASTRUCTURE HEALTH CHECK${NC}"
+echo -e "${BLUE}  HACKATHON INFRASTRUCTURE HEALTH CHECK${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo "📅 Date: $(date)"
+echo "Date: $(date)"
 echo ""
 
 # Счётчик ошибок
@@ -49,7 +49,7 @@ print_status() {
 }
 
 # === 1. DOCKER & COMPOSE ===
-echo -e "${BLUE}🐳 Docker Engine${NC}"
+echo -e "${BLUE} Docker Engine${NC}"
 if docker info > /dev/null 2>&1; then
     echo -e "[${GREEN}OK${NC}] Docker daemon is running"
 else
@@ -66,7 +66,7 @@ fi
 echo ""
 
 # === 2. CONTAINER STATUS & HEALTH ===
-echo -e "${BLUE}📦 Containers Status${NC}"
+echo -e "${BLUE} Containers Status${NC}"
 SERVICES=("hackathon-caddy" "hackathon-db" "hackathon-queue" "hackathon-auth" "hackathon-java" "hackathon-go" "hackathon-frontend" "hackathon-ml" "hackathon-redis")
 
 # Формат вывода docker ps: Name, Status, Health, State
@@ -121,7 +121,7 @@ done
 echo ""
 
 # === 3. SERVICE ENDPOINTS (inside containers) ===
-echo -e "${BLUE}🔌 Service Endpoints (docker exec)${NC}"
+echo -e "${BLUE} Service Endpoints (docker exec)${NC}"
 
 check_service() {
     local name="$1"
@@ -176,7 +176,6 @@ if docker ps --filter "name=^/hackathon-ml$" --format '{{.Names}}' | grep -q "ha
     else
         print_status "FAIL" "ML → Go: cannot reach go-backend:8083"
     fi
-    # Проверка, что у контейнера есть extra_hosts (host.docker.internal) — иначе с хоста не достучаться
     HAS_HOST_GW=$(docker inspect hackathon-ml --format '{{range .HostConfig.ExtraHosts}}{{.}}{{end}}' 2>/dev/null | grep -o 'host.docker.internal' || true)
     if [ -z "$HAS_HOST_GW" ]; then
         print_status "WARN" "ML → Ollama: контейнер без extra_hosts (host.docker.internal). Пересоздайте: docker compose --profile all up -d --force-recreate ml-service"
@@ -191,7 +190,7 @@ fi
 echo ""
 
 # === 4. PUBLIC DOMAIN & SSL ===
-echo -e "${BLUE}🌐 Public Domain & SSL${NC}"
+echo -e "${BLUE} Public Domain & SSL${NC}"
 DOMAIN="besthackaton.duckdns.org"
 API_DOMAIN="api.besthackaton.duckdns.org"
 
@@ -228,7 +227,6 @@ fi
 check_url "Public Frontend" "https://$DOMAIN" "200"
 check_url "Public API /actuator/health" "https://$API_DOMAIN/actuator/health" "200"
 check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
-# ML: проверяем через API-домен; 404 при запуске с VPS — часто hairpinning; тогда проверяем Caddy→ML изнутри
 ML_URL="https://$API_DOMAIN/api/v1/ml/users/test123/session"
 ML_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$ML_URL")
 if [ "$ML_CODE" = "200" ]; then
@@ -247,12 +245,12 @@ fi
 echo ""
 
 # === 5. RESOURCES ===
-echo -e "${BLUE}📊 Resource Usage${NC}"
+echo -e "${BLUE} Resource Usage${NC}"
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"
 echo ""
 
 # === 6. BACKUPS ===
-echo -e "${BLUE}💾 Backups${NC}"
+echo -e "${BLUE} Backups${NC}"
 BACKUP_DIR="$PROJECT_ROOT/backups/postgres"
 LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/db_*.sql.gz 2>/dev/null | head -1)
 
@@ -279,7 +277,7 @@ fi
 echo ""
 
 # === 7. RECENT ERRORS ===
-echo -e "${BLUE}📋 Log Analysis (Last 50 lines)${NC}"
+echo -e "${BLUE} Log Analysis (Last 50 lines)${NC}"
 # Ищем "Error", "Exception", "Panic" но исключаем безобидные
 LOG_ERRORS=$(cd "$PROJECT_ROOT" && docker compose logs --tail=50 2>&1 | grep -iE "error|exception|panic|fatal" | grep -v "npm notice" | grep -v "DeprecationWarning" | head -n 5)
 
@@ -295,12 +293,12 @@ echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 if [ "$ERRORS" -eq 0 ]; then
     if [ "$WARNINGS" -eq 0 ]; then
-        echo -e "${GREEN}✅ SYSTEM HEALTHY - READY TO DEMO${NC}"
+        echo -e "${GREEN} SYSTEM HEALTHY - READY TO DEMO${NC}"
     else
-        echo -e "${YELLOW}⚠️  SYSTEM RUNNING WITH $WARNINGS WARNINGS${NC}"
+        echo -e "${YELLOW} SYSTEM RUNNING WITH $WARNINGS WARNINGS${NC}"
     fi
 else
-    echo -e "${RED}❌ SYSTEM HAS $ERRORS CRITICAL ISSUES${NC}"
+    echo -e "${RED} SYSTEM HAS $ERRORS CRITICAL ISSUES${NC}"
     exit 1
 fi
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
