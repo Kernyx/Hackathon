@@ -10,6 +10,3 @@ spring:
     username: postgres
     password: password
 
-rsa:
-  public-key: classpath:token/public.pem
-  private-key: classpath:token/private.pem

@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AgentDrawer, type AgentData } from "./AgentDrawer" // Импортируем тип
+import { AgentDrawer, type AgentData } from "./AgentDrawer"
 import { deleteAgentFromStorage, getStoredAgents, LS_KEY } from "@/lib/storage";
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
@@ -15,36 +15,77 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+// Безопасная функция для извлечения характеристик (traits)
+const extractTraits = (res: any) => {
+  // 1. Если сервер отдал нормальный объект traits (как в новом JSON)
+  if (res.traits && typeof res.traits === 'object') {
+    return res.traits;
+  }
+
+  // 2. Если вдруг traits или additionalInformation пришли как JSON-строка (старый формат)
+  const stringToParse = typeof res.traits === 'string'
+    ? res.traits
+    : typeof res.additionalInformation === 'string'
+      ? res.additionalInformation
+      : null;
+
+  if (stringToParse) {
+    try {
+      const parsed = JSON.parse(stringToParse);
+      // Проверяем, что распарсился именно объект, а не число/буль
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (e) {
+      // Это обычный текст (например: "Пишет стихи..."). Игнорируем ошибку.
+    }
+  }
+
+  // 3. Дефолтное значение, если ничего не подошло
+  return { openness: 50, conscientiousness: 50, extraversion: 50, agreeableness: 50, neuroticism: 50 };
+};
+
+export function SectionCards({ externalAgents }: { externalAgents?: any[] }) {
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentData | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
   const deleteTimersRef = useRef<Map<string, number>>(new Map());
   const pendingDeleteRef = useRef<Set<string>>(new Set());
-    
+
+  // Маппинг внешних агентов
+  useEffect(() => {
+    if (externalAgents && externalAgents.length > 0) {
+      const formatted = externalAgents.map((res: any) => ({
+        id: res.id,
+        name: res.username,
+        avatarSeed: res.photo || res.photoLink, // Учли photoLink из твоего JSON
+        age: res.age,
+        role: res.personalityType,
+        traits: extractTraits(res),
+      }));
+      setAgents(formatted);
+    }
+  }, [externalAgents]);
+
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
 
   const handleDeleteRequest = async (e: MouseEvent, id: string) => {
-    try{
+    try {
       e.stopPropagation();
       await AiAgentServiceService.deleteAiAgentAgents(id);
       deleteAgentFromStorage(id);
       setPendingDelete((prev) => new Set(prev).add(id));
-    }catch (error) {
+    } catch (error) {
       console.error("Ошибка при удалении:", error);
     }
-
   };
 
   const handleMouseLeave = (id: string) => {
     if (pendingDelete.has(id)) {
-      // Не ставим второй таймер на тот же id
       if (deleteTimersRef.current.has(id)) return;
 
-      // Если пользователь увел мышку с "удаляемой" карточки, 
-      // даем ему 1.5 - 2 секунды передумать и удаляем окончательно
       const timerId = window.setTimeout(() => {
         if (pendingDeleteRef.current.has(id)) {
           deleteAgentFromStorage(id);
@@ -56,10 +97,8 @@ export function SectionCards() {
             return next;
           });
         }
-
-        // Таймер отработал — чистим ссылку
         deleteTimersRef.current.delete(id);
-      }, 2000); // Время на "подумать" после отвода курсора
+      }, 2000);
 
       deleteTimersRef.current.set(id, timerId);
     }
@@ -81,6 +120,7 @@ export function SectionCards() {
     });
   };
 
+  // Получение с сервера
   useEffect(() => {
     const fetchAgentsFromServer = async () => {
       const localData = getStoredAgents();
@@ -98,7 +138,7 @@ export function SectionCards() {
           return;
         }
 
-        const agentDetailsPromises = relations.map((rel: any) => 
+        const agentDetailsPromises = relations.map((rel: any) =>
           AiAgentServiceService.getAiAgentAgents(rel.agentId)
         );
 
@@ -107,20 +147,17 @@ export function SectionCards() {
         const formattedAgents: AgentData[] = agentsRawData.map((res: any) => ({
           id: res.id,
           name: res.username,
-          avatarSeed: res.photo,
+          avatarSeed: res.photo || res.photoLink, // Учли photoLink
           age: res.age,
           male: res.isMale,
           role: res.personalityType,
           interests: res.interests,
-          traits: typeof res.additionalInformation === 'string' 
-                  ? JSON.parse(res.additionalInformation) 
-                  : res.additionalInformation,
+          traits: extractTraits(res), // Использовали безопасную функцию
           ownerId: userId
         }));
 
         setAgents(formattedAgents);
         localStorage.setItem(LS_KEY, JSON.stringify(formattedAgents));
-
         localStorage.setItem('all_agents_catalog', JSON.stringify(formattedAgents));
 
       } catch (error) {
@@ -133,9 +170,9 @@ export function SectionCards() {
 
   const handleAddNew = () => {
     const newAgent: AgentData = {
-      id: crypto.randomUUID(), 
+      id: crypto.randomUUID(),
       name: "",
-      avatarSeed: Math.random().toString(36).substring(7), 
+      avatarSeed: Math.random().toString(36).substring(7),
       male: true,
       role: "Custom",
       mood: "neutral",
@@ -147,14 +184,12 @@ export function SectionCards() {
   };
 
   const refreshData = () => {
-          setAgents(getStoredAgents());
-          setSelectedAgent(null);
+    setAgents(getStoredAgents());
+    setSelectedAgent(null);
   };
-  
+
   return (
-
     <>
-
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         {agents.map((agent) => {
           const isDeleting = pendingDelete.has(agent.id!);
@@ -164,19 +199,18 @@ export function SectionCards() {
               key={agent.id}
               onMouseLeave={() => handleMouseLeave(agent.id!)}
               className={`group relative overflow-hidden cursor-pointer transition-all @container/card shadow-xs
-                ${isDeleting 
-                  ? "opacity-50 grayscale scale-95 border-destructive/50 bg-destructive/5" 
+                ${isDeleting
+                  ? "opacity-50 grayscale scale-95 border-destructive/50 bg-destructive/5"
                   : "hover:ring-2 hover:ring-primary/50 active:scale-95 bg-linear-to-t from-primary/5 to-card"}
               `}
               onClick={() => !isDeleting && setSelectedAgent(agent)}
             >
-              {/* Слой удаления (Overlay) */}
               {isDeleting && (
                 <div className="absolute inset-0 z-10 flex items-center justify-between px-4 bg-background/90 backdrop-blur-[2px] animate-in fade-in duration-300">
                   <span className="text-xs font-medium text-gray-200">Агент будет удален...</span>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-8 gap-2 border-primary/20 hover:bg-primary/10"
                     onClick={(e) => handleUndo(e, agent.id!)}
                   >
@@ -198,13 +232,14 @@ export function SectionCards() {
                   <CardDescription className="text-xs">{agent.role}</CardDescription>
                 </div>
 
-                {/* Кнопка удаления - появляется при ховере */}
                 {!isDeleting && (
                   <div className="ml-auto flex items-center gap-2">
-                    <Badge variant="outline" className={`group-hover:hidden ${agent.mood === 'angry' ? 'border-red-500 text-red-500 bg-red-500/10' : ''}`}>
-                      {agent.mood}
-                    </Badge>
-                    
+                    {agent.mood && (
+                       <Badge variant="outline" className={`group-hover:hidden ${agent.mood === 'angry' ? 'border-red-500 text-red-500 bg-red-500/10' : ''}`}>
+                         {agent.mood}
+                       </Badge>
+                    )}
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -216,50 +251,29 @@ export function SectionCards() {
                   </div>
                 )}
               </CardHeader>
-              
             </Card>
           );
         })}
 
-
-
-        {/* Кнопка Добавить */}
-
         <Card
-
           className="flex items-center justify-center border-2 border-dashed border-muted-foreground/20 bg-transparent hover:bg-muted/50 hover:border-primary/50 cursor-pointer transition-all h-24.5"
-
           onClick={handleAddNew}
-
         >
-
           <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-primary">
-
             <Plus className="h-6 w-6" />
-
             <span className="text-[10px] font-medium uppercase tracking-wider">Добавить</span>
-
           </div>
-
         </Card>
-
       </div>
 
-
-
-      {/* Drawer */}
-
-    {selectedAgent && (
-                    <AgentDrawer 
-                        agent={selectedAgent}
-                        open={!!selectedAgent}
-                        onOpenChange={(open) => !open && setSelectedAgent(null)}
-                        onSaveSuccess={refreshData} 
-                    />
-    )}
-
+      {selectedAgent && (
+        <AgentDrawer
+            agent={selectedAgent}
+            open={!!selectedAgent}
+            onOpenChange={(open) => !open && setSelectedAgent(null)}
+            onSaveSuccess={refreshData}
+        />
+      )}
     </>
-
   )
-
 }

@@ -1,93 +1,848 @@
 openapi: 3.1.0
 info:
-  title: API
+  title: Unified API (Auth, AI Agent, Audit)
   version: 1.0.0
+  description: Объединенный API для сервисов аутентификации, AI-агентов и аудита событий.
 
 servers:
   - url: /api/v1
 
 paths:
+  # ---------------------
+  # Authentication Routes
+  # ---------------------
   /auth/signup:
-    $ref: './components/authentication.yaml#/paths/~1signup'
+    post:
+      tags: [Authentication Service]
+      summary: Sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpDto'
+      responses:
+        "201":
+          description: User successfully registered
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
   /auth/signin:
-    $ref: './components/authentication.yaml#/paths/~1signin'
+    post:
+      tags: [Authentication Service]
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInDto'
+      responses:
+        "200":
+          description: User authenticated
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
   /auth/refresh-token:
-    $ref: './components/authentication.yaml#/paths/~1refresh-token'
+    get:
+      tags: [Authentication Service]
+      summary: Refresh access token
+      parameters:
+        - name: refreshToken
+          in: cookie
+          required: true
+          description: Refresh token required to update access token
+          schema:
+            type: string
+            format: jwt
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        "200":
+          description: Access token updated
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
 
+  # ---------------------
+  # AI Agent Routes
+  # ---------------------
   /ai-agent/agents:
-    $ref: './components/ai-agent.yaml#/paths/~1agents'
+    post:
+      tags: [AI Agent Service]
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '201':
+          description: AI Agent created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /ai-agent/agents/{agentId}:
-    $ref: './components/ai-agent.yaml#/paths/~1agents~1{agentId}'
+    get:
+      tags: [AI Agent Service]
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAgentDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [AI Agent Service]
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [AI Agent Service]
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai-agent/users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiAgentDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /ai-agent/users/{userId}/agents/relations:
-    $ref: './components/ai-agent.yaml#/paths/~1users~1{userId}~1agents~1relations'
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
+  # ---------------------
+  # Audit Routes
+  # ---------------------
   /audit/events:
-    $ref: './components/audit.yaml#/paths/~1events'
+    post:
+      tags: [Audit Service]
+      summary: Publish AI log
+      description: Отправить событие в систему аудита
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_type
+                - source_agent
+                - timestamp
+              properties:
+                event_type:
+                  type: string
+                  description: Тип события
+                  examples:
+                    - "message_sent"
+                source_agent:
+                  $ref: '#/components/schemas/SourceAgent'
+                target_agents:
+                  type: array
+                  description: Агенты-получатели
+                  items:
+                    $ref: '#/components/schemas/TargetAgent'
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Время события
+                data:
+                  $ref: '#/components/schemas/EventData'
+                simulation_context:
+                  $ref: '#/components/schemas/SimulationContext'
+      responses:
+        '202':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
-  # ML AI Service
-  /ml/users/{userId}/session:
-    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1session'
-  /ml/users/{userId}/session/settings:
-    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1session~1settings'
-  /ml/users/{userId}/messages:
-    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1messages'
-  /ml/users/{userId}/conversation:
-    $ref: './components/ml-service.yaml#/paths/~1users~1{userId}~1conversation'
+  /audit/feed:
+    get:
+      tags: [Audit Service]
+      summary: Get recent events feed (from Redis)
+      description: Получить последние события из Redis кеша
+      parameters:
+        - name: limit
+          in: query
+          description: Количество событий (максимум 100)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of recent events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsFeedResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /audit/history:
+    get:
+      tags: [Audit Service]
+      summary: Get historical events (from PostgreSQL)
+      description: Получить события по агенту из PostgreSQL
+      parameters:
+        - name: limit
+          in: query
+          description: Количество событий (максимум 1000)
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Смещение для пагинации
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Historical events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /audit/agents/{agent_id}/events:
+    get:
+      tags: [Audit Service]
+      summary: Get events by agent ID
+      description: Получить события конкретного агента
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: ID агента
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Количество событий (максимум 500)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Agent events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+                  agent_id:
+                    type: string
+                  source:
+                    type: string
+                    examples:
+                      - "postgresql"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /audit/agents/{agent_id}/stats:
+    get:
+      tags: [Audit Service]
+      summary: Get agent statistics
+      description: Получить статистику по агенту
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: ID агента
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_id:
+                    type: string
+                  total_events:
+                    type: integer
+                  messages_sent:
+                    type: integer
+                  last_activity:
+                    type: string
+                    format: date-time
+                  event_types:
+                    type: object
+                    additionalProperties:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /audit/ws:
+    get:
+      tags: [Audit Service]
+      summary: WebSocket connection
+      description: Подключение к WebSocket для real-time событий
+      responses:
+        '101':
+          description: Switching Protocols (WebSocket)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /audit/ws/stats:
+    get:
+      tags: [Audit Service]
+      summary: WebSocket statistics
+      description: Получить статистику WebSocket подключений
+      responses:
+        '200':
+          description: WebSocket stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSocketStatsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
   schemas:
+    # ------------------
+    # Error Schemas
+    # ------------------
     ErrorCode:
-      $ref: './components/errors.yaml#/components/schemas/ErrorCode'
-    ErrorResponse:
-      $ref: './components/errors.yaml#/components/schemas/ErrorResponse'
-    SignUpDto:
-      $ref: './components/authentication.yaml#/components/schemas/SignUpDto'
-    SignInDto:
-      $ref: './components/authentication.yaml#/components/schemas/SignInDto'
-    
-    AiAgentDto:
-      $ref: './components/ai-agent.yaml#/components/schemas/AiAgentDto'
-    AgentTraits:
-      $ref: './components/ai-agent.yaml#/components/schemas/AgentTraits'
-    PersonalityType:
-      $ref: './components/ai-agent.yaml#/components/schemas/PersonalityType'
-    
-    # Audit Service schemas
-    AuditEvent:
-      $ref: './components/audit.yaml#/components/schemas/AuditEvent'
-    AuditSourceAgent:
-      $ref: './components/audit.yaml#/components/schemas/SourceAgent'
-    AuditTargetAgent:
-      $ref: './components/audit.yaml#/components/schemas/TargetAgent'
-    AuditMood:
-      $ref: './components/audit.yaml#/components/schemas/Mood'
-    AuditSimulationContext:
-      $ref: './components/audit.yaml#/components/schemas/SimulationContext'
+      type: string
+      description: >
+        Application specific error codes.
+        Prefixes:
+        A - Authentication, S - Signup, L - Login, AT - Access Token, RT - Refresh Token, R - Authorization
+      enum:
+        - A-1000
+        - A-S1001
+        - A-L1001
+        - A-L1002
+        - A-L1003
+        - A-AT1001
+        - A-AT1002
+        - A-RT1001
+        - A-RT1002
+        - A-R1001
+        - A-R1002
+        - A-R1003
 
-    # ML AI Service schemas
-    SessionCreateRequest:
-      $ref: './components/ml-service.yaml#/components/schemas/SessionCreateRequest'
-    SessionSettingsRequest:
-      $ref: './components/ml-service.yaml#/components/schemas/SessionSettingsRequest'
-    SessionSettingsResponse:
-      $ref: './components/ml-service.yaml#/components/schemas/SessionSettingsResponse'
-    SessionInfo:
-      $ref: './components/ml-service.yaml#/components/schemas/SessionInfo'
-    MessageRequest:
-      $ref: './components/ml-service.yaml#/components/schemas/MessageRequest'
-    MessageResponse:
-      $ref: './components/ml-service.yaml#/components/schemas/MessageResponse'
-    ConversationResponse:
-      $ref: './components/ml-service.yaml#/components/schemas/ConversationResponse'
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Human readable error message
+          example: "Access token expired"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence time
+        traceId:
+          type: string
+          description: Unique identifier for log tracing
+          example: "6f8c2d1e"
+
+    # ------------------
+    # Authentication Schemas
+    # ------------------
+    SignUpDto:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          examples:
+            - "winner1337"
+        email:
+          type: string
+          examples:
+            - "admin@admin.com"
+        password:
+          type: string
+          examples:
+            - "admin"
+
+    SignInDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          examples:
+            - "admin@admin.com"
+        password:
+          type: string
+          examples:
+            - "admin"
+
+    # ------------------
+    # AI Agent Schemas
+    # ------------------
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits:
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
+
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+        conscientiousness:
+          type: integer
+        extraversion:
+          type: integer
+        agreeableness:
+          type: integer
+        neuroticism:
+          type: integer
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+      x-enum-varnames: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+
+    # ------------------
+    # Audit Schemas
+    # ------------------
+    Mood:
+      type: object
+      properties:
+        dominant_emotion:
+          type: string
+          examples:
+            - "спокойствие"
+        happiness:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        energy:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        stress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        anger:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        fear:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+
+    Relationship:
+      type: object
+      properties:
+        value:
+          type: number
+          format: float
+          description: Значение отношения (-1.0 до 1.0)
+          minimum: -1
+          maximum: 1
+        display_name:
+          type: string
+          description: Имя агента
+
+    Activity:
+      type: object
+      properties:
+        talkativeness:
+          type: number
+          format: float
+          description: Уровень разговорчивости (0.0-1.0)
+          minimum: 0
+          maximum: 1
+        messages_spoken:
+          type: integer
+          description: Количество сообщений
+          minimum: 0
+
+    Plan:
+      type: object
+      properties:
+        goal:
+          type: string
+          description: Текущая цель
+        current_step:
+          type: integer
+          description: Текущий шаг плана
+          minimum: 0
+
+    SourceAgent:
+      type: object
+      required:
+        - agent_id
+        - name
+      properties:
+        agent_id:
+          type: string
+          examples:
+            - "agent_1"
+        name:
+          type: string
+          examples:
+            - "Алиса"
+        mood:
+          $ref: '#/components/schemas/Mood'
+        relationships:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Relationship'
+        activity:
+          $ref: '#/components/schemas/Activity'
+        plan:
+          $ref: '#/components/schemas/Plan'
+
+    TargetAgent:
+      type: object
+      required:
+        - agent_id
+      properties:
+        agent_id:
+          type: string
+        name:
+          type: string
+
+    EventData:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Текст сообщения
+        tick:
+          type: integer
+          description: Номер тика симуляции
+          minimum: 0
+        is_initiative:
+          type: boolean
+          description: Инициатор ли агент
+        action_result:
+          type: string
+          description: Результат действия
+        sentiments:
+          type: object
+          description: Изменения в отношениях
+          additionalProperties:
+            type: object
+            properties:
+              delta:
+                type: number
+                format: float
+              reason:
+                type: string
+
+    SimulationContext:
+      type: object
+      properties:
+        scenario_name:
+          type: string
+          examples:
+            - "Необитаемый остров"
+        current_topic:
+          type: string
+        phase:
+          type: string
+          examples:
+            - "decide"
+
+    Event:
+      type: object
+      description: Событие из ленты
+      properties:
+        event_type:
+          type: string
+          description: Тип события
+        source_agent:
+          $ref: '#/components/schemas/SourceAgent'
+        target_agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetAgent'
+        timestamp:
+          type: string
+          format: date-time
+          description: Время события
+        data:
+          $ref: '#/components/schemas/EventData'
+        simulation_context:
+          $ref: '#/components/schemas/SimulationContext'
+        processed_at:
+          type: string
+          format: date-time
+          description: Время обработки события
+        processed_ts:
+          type: integer
+          format: int64
+          description: Unix timestamp обработки
+
+    EventsFeedResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        count:
+          type: integer
+          description: Количество возвращенных событий
+          examples:
+            - 10
+        limit:
+          type: integer
+          description: Запрошенный лимит
+          examples:
+            - 20
+        source:
+          type: string
+          description: Источник данных
+          examples:
+            - "redis"
+
+    HistoryResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        count:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+          description: Общее количество событий в БД
+        source:
+          type: string
+          examples:
+            - "postgresql"
+
+    EventAcceptedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          examples:
+            - "accepted"
+        type:
+          type: string
+          examples:
+            - "message_sent"
+        timestamp:
+          type: string
+          format: date-time
+
+    WebSocketStatsResponse:
+      type: object
+      properties:
+        connected_clients:
+          type: integer
+          description: Количество подключенных клиентов
 
   responses:
     BadRequest:
-      $ref: './components/authentication.yaml#/components/responses/BadRequest'
+      description: Incorrect credentials or bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
     Conflict:
-      $ref: './components/authentication.yaml#/components/responses/Conflict'
+      description: User already registered or conflict occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
     TooManyRequests:
-      $ref: './components/authentication.yaml#/components/responses/TooManyRequests'
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
     Unauthorized:
-      $ref: './components/authentication.yaml#/components/responses/Unauthorized'
+      description: Access token can't be updated or unauthorized access
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
     InternalError:
-      $ref: './components/authentication.yaml#/components/responses/InternalError'
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

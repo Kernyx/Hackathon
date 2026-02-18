@@ -2,14 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type AiAgent = {
+export type Relationship = {
     /**
-     * Уникальный идентификатор агента
+     * Значение отношения (-1.0 до 1.0)
      */
-    id: string;
+    value?: number;
     /**
      * Имя агента
      */
-    username: string;
+    display_name?: string;
 };
 

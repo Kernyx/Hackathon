@@ -23,8 +23,8 @@ export class AuthenticationServiceService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `Incorrect credentials`,
-                409: `User already registered`,
+                400: `Incorrect credentials or bad request`,
+                409: `User already registered or conflict occurred`,
                 429: `Too many requests`,
                 500: `Internal server error`,
             },
@@ -45,7 +45,7 @@ export class AuthenticationServiceService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `Incorrect credentials`,
+                400: `Incorrect credentials or bad request`,
                 429: `Too many requests`,
                 500: `Internal server error`,
             },
@@ -67,7 +67,7 @@ export class AuthenticationServiceService {
                 'refreshToken': refreshToken,
             },
             errors: {
-                401: `Access token can't be updated. Sign-in required`,
+                401: `Access token can't be updated or unauthorized access`,
                 429: `Too many requests`,
                 500: `Internal server error`,
             },
