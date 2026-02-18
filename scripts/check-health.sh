@@ -159,6 +159,33 @@ check_service "Redis PING" "hackathon-redis" \
     "redis-cli ping"
 echo ""
 
+# === 3.1 CONTAINER CONNECTIVITY (межсервисная связность) ===
+echo -e "${BLUE}🔗 Container Connectivity (Go↔ML, Caddy↔ML)${NC}"
+if docker ps --filter "name=^/hackathon-go$" --format '{{.Names}}' | grep -q "hackathon-go"; then
+    if docker exec hackathon-go wget -qO- --timeout=5 http://ml-service:8084/health > /dev/null 2>&1; then
+        print_status "OK" "Go → ML (ml-service:8084/health)"
+    else
+        print_status "FAIL" "Go → ML: cannot reach ml-service:8084"
+    fi
+else
+    print_status "WARN" "Go → ML: hackathon-go not running, skipped"
+fi
+if docker ps --filter "name=^/hackathon-ml$" --format '{{.Names}}' | grep -q "hackathon-ml"; then
+    if docker exec hackathon-ml python -c "import urllib.request; urllib.request.urlopen('http://go-backend:8083/health', timeout=5)" > /dev/null 2>&1; then
+        print_status "OK" "ML → Go (go-backend:8083/health)"
+    else
+        print_status "FAIL" "ML → Go: cannot reach go-backend:8083"
+    fi
+    if docker exec hackathon-ml python -c "import urllib.request; urllib.request.urlopen('http://host.docker.internal:1234/v1/models', timeout=5)" > /dev/null 2>&1; then
+        print_status "OK" "ML → Ollama (host.docker.internal:1234)"
+    else
+        print_status "WARN" "ML → Ollama: host.docker.internal:1234 unreachable (Ollama may not be running on host)"
+    fi
+else
+    print_status "WARN" "ML connectivity: hackathon-ml not running, skipped"
+fi
+echo ""
+
 # === 4. PUBLIC DOMAIN & SSL ===
 echo -e "${BLUE}🌐 Public Domain & SSL${NC}"
 DOMAIN="besthackaton.duckdns.org"
@@ -197,6 +224,7 @@ fi
 check_url "Public Frontend" "https://$DOMAIN" "200"
 check_url "Public API /actuator/health" "https://$API_DOMAIN/actuator/health" "200"
 check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
+check_url "Public API /api/v1/ml (Caddy→ML)" "https://$DOMAIN/api/v1/ml/users/test123/session" "200"
 echo ""
 
 # === 5. RESOURCES ===
