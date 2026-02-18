@@ -198,7 +198,7 @@ useEffect(() => {
     if (wsRef.current || isConnectingRef.current) return;
     
     isConnectingRef.current = true;
-    const ws = new WebSocket(`ws://besthackaton.duckdns.org/api/v1/audit/ws?token=${OpenAPI.TOKEN}`);
+    const ws = new WebSocket(`wss://besthackaton.duckdns.org/api/v1/audit/ws?token=${OpenAPI.TOKEN}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
