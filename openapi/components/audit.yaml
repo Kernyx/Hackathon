@@ -1,48 +1,65 @@
 openapi: 3.1.0
 info:
   title: Audit Service
-  version: 1.0.0
+  version: 2.0.0
 
 servers:
   - url: /api/v1/audit
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен аутентификации (содержит userId)
+
   schemas:
     Mood:
       type: object
+      description: Настроение агента
       properties:
         dominant_emotion:
           type: string
-          examples: 
+          description: Доминирующая эмоция
+          examples:
             - "спокойствие"
+            - "решимость"
+            - "тревога"
         happiness:
           type: number
           format: float
-          minimum: 0
+          minimum: -1
           maximum: 1
+          description: Уровень счастья
         energy:
           type: number
           format: float
-          minimum: 0
+          minimum: -1
           maximum: 1
+          description: Уровень энергии
         stress:
           type: number
           format: float
-          minimum: 0
+          minimum: -1
           maximum: 1
+          description: Уровень стресса
         anger:
           type: number
           format: float
-          minimum: 0
+          minimum: -1
           maximum: 1
+          description: Уровень злости
         fear:
           type: number
           format: float
-          minimum: 0
+          minimum: -1
           maximum: 1
-    
+          description: Уровень страха
+
     Relationship:
       type: object
+      description: Отношение к другому агенту
       properties:
         value:
           type: number
@@ -52,10 +69,11 @@ components:
           maximum: 1
         display_name:
           type: string
-          description: Имя агента
-    
+          description: Отображаемое имя агента
+
     Activity:
       type: object
+      description: Активность агента
       properties:
         talkativeness:
           type: number
@@ -65,126 +83,188 @@ components:
           maximum: 1
         messages_spoken:
           type: integer
-          description: Количество сообщений
+          description: Количество сообщений за сессию
           minimum: 0
-    
+
     Plan:
       type: object
+      description: Текущий план агента
       properties:
         goal:
           type: string
-          description: Текущая цель
+          description: Текущая цель агента
+          examples:
+            - "Построить укрытие"
         current_step:
           type: integer
           description: Текущий шаг плана
           minimum: 0
-    
+
     SourceAgent:
       type: object
+      description: Агент-инициатор события (полное состояние)
       required:
         - agent_id
         - name
       properties:
         agent_id:
           type: string
-          examples: 
+          description: Уникальный ID агента
+          examples:
             - "agent_1"
         name:
           type: string
-          examples: 
+          description: Имя агента
+          examples:
             - "Алиса"
         mood:
           $ref: '#/components/schemas/Mood'
         relationships:
           type: object
+          description: Отношения к другим агентам (ключ = agent_id)
           additionalProperties:
             $ref: '#/components/schemas/Relationship'
         activity:
           $ref: '#/components/schemas/Activity'
         plan:
           $ref: '#/components/schemas/Plan'
-    
+
     TargetAgent:
       type: object
+      description: Агент-получатель события
       required:
         - agent_id
+        - name
       properties:
         agent_id:
           type: string
+          description: ID агента-получателя
         name:
           type: string
-    
+          description: Имя агента-получателя
+
+    SentimentChange:
+      type: object
+      description: Изменение отношения к агенту
+      properties:
+        delta:
+          type: number
+          format: float
+          description: Изменение значения отношения
+          examples:
+            - 0.1
+            - -0.05
+        reason:
+          type: string
+          description: Причина изменения
+          examples:
+            - "позитив: 'спасибо'"
+            - "негатив: 'глуп'"
+
     EventData:
       type: object
+      description: Данные события
       properties:
         message:
           type: string
-          description: Текст сообщения
+          description: Текст сообщения агента
+          examples:
+            - "Давайте построим укрытие из пальм!"
         tick:
           type: integer
           description: Номер тика симуляции
           minimum: 0
         is_initiative:
           type: boolean
-          description: Инициатор ли агент
+          description: Агент инициировал действие/тему
         action_result:
           type: string
-          description: Результат действия
+          nullable: true
+          description: Результат действия (если было действие)
         sentiments:
           type: object
-          description: Изменения в отношениях
+          description: Изменения отношений (ключ = agent_id получателя)
           additionalProperties:
-            type: object
-            properties:
-              delta:
-                type: number
-                format: float
-              reason:
-                type: string
-    
+            $ref: '#/components/schemas/SentimentChange'
+
     SimulationContext:
       type: object
+      description: Контекст симуляции
       properties:
         scenario_name:
           type: string
-          examples: 
+          description: Название текущего сценария
+          examples:
             - "Необитаемый остров"
         current_topic:
           type: string
+          nullable: true
+          description: Текущая тема обсуждения
+          examples:
+            - "как построить укрытие из пальм?"
         phase:
           type: string
-          examples: 
+          description: Текущая фаза диалога
+          enum:
+            - discuss
+            - decide
+            - act
+            - conclude
+          examples:
             - "decide"
-    Event:
+
+    AuditEvent:
       type: object
-      description: Событие из ленты
+      description: Полное событие аудита
+      required:
+        - event_type
+        - source_agent
+        - timestamp
       properties:
         event_type:
           type: string
           description: Тип события
+          enum:
+            - message_sent
+            - new_topic
+            - event_reaction
+          examples:
+            - "message_sent"
         source_agent:
           $ref: '#/components/schemas/SourceAgent'
         target_agents:
           type: array
+          description: Агенты-получатели
           items:
             $ref: '#/components/schemas/TargetAgent'
         timestamp:
           type: string
           format: date-time
-          description: Время события
+          description: Время события (ISO 8601)
+          examples:
+            - "2026-02-17T22:25:26.485Z"
         data:
           $ref: '#/components/schemas/EventData'
         simulation_context:
           $ref: '#/components/schemas/SimulationContext'
-        processed_at:
+
+    # ── Ответы ──
+
+    EventAcceptedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          examples:
+            - "accepted"
+        type:
+          type: string
+          examples:
+            - "message_sent"
+        timestamp:
           type: string
           format: date-time
-          description: Время обработки события
-        processed_ts:
-          type: integer
-          format: int64
-          description: Unix timestamp обработки
-    
+
     ErrorResponse:
       type: object
       required:
@@ -197,6 +277,24 @@ components:
           type: string
           description: Детали ошибки
 
+    # ── Feed / History ──
+
+    Event:
+      type: object
+      description: Событие из ленты (с метаданными обработки)
+      allOf:
+        - $ref: '#/components/schemas/AuditEvent'
+        - type: object
+          properties:
+            processed_at:
+              type: string
+              format: date-time
+              description: Время обработки события
+            processed_ts:
+              type: integer
+              format: int64
+              description: Unix timestamp обработки
+
     EventsFeedResponse:
       type: object
       properties:
@@ -206,17 +304,14 @@ components:
             $ref: '#/components/schemas/Event'
         count:
           type: integer
-          description: Количество возвращенных событий
-          examples: 
+          examples:
             - 10
         limit:
           type: integer
-          description: Запрошенный лимит
           examples:
             - 20
         source:
           type: string
-          description: Источник данных
           examples:
             - "redis"
 
@@ -241,21 +336,6 @@ components:
           examples:
             - "postgresql"
 
-    EventAcceptedResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          examples:
-            - "accepted"
-        type:
-          type: string
-          examples:
-            - "message_sent"
-        timestamp:
-          type: string
-          format: date-time
-
     WebSocketStatsResponse:
       type: object
       properties:
@@ -267,60 +347,82 @@ paths:
   /events:
     post:
       tags: [Audit Service]
-      summary: Publish AI log
-      description: Отправить событие в систему аудита
+      summary: Отправить событие в аудит
+      description: |
+        Отправляет полное событие симуляции в систему аудита.
+        На каждом тике ML-сервис отправляет действия агентов в песочницу.
+        
+        JWT токен передаётся в заголовке Authorization и содержит userId.
+      operationId: publishEvent
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - event_type
-                - source_agent
-                - timestamp
-              properties:
-                event_type:
-                  type: string
-                  description: Тип события
-                  examples: 
-                    - "message_sent"
-                
-                source_agent:
-                  $ref: '#/components/schemas/SourceAgent'
-                
-                target_agents:
-                  type: array
-                  description: Агенты-получатели
-                  items:
-                    $ref: '#/components/schemas/TargetAgent'
-                
-                timestamp:
-                  type: string
-                  format: date-time
-                  description: Время события
-                
-                data:
-                  $ref: '#/components/schemas/EventData'
-                
-                simulation_context:
-                  $ref: '#/components/schemas/SimulationContext'
-      
+              $ref: '#/components/schemas/AuditEvent'
+            example:
+              event_type: "message_sent"
+              source_agent:
+                agent_id: "agent_1"
+                name: "Алиса"
+                mood:
+                  dominant_emotion: "спокойствие"
+                  happiness: 0.3
+                  energy: 0.7
+                  stress: 0.1
+                  anger: 0.0
+                  fear: 0.0
+                relationships:
+                  agent_2:
+                    value: 0.15
+                    display_name: "Борис"
+                  agent_3:
+                    value: -0.10
+                    display_name: "Вика"
+                activity:
+                  talkativeness: 0.65
+                  messages_spoken: 12
+                plan:
+                  goal: "Построить укрытие"
+                  current_step: 2
+              target_agents:
+                - agent_id: "agent_2"
+                  name: "Борис"
+                - agent_id: "agent_3"
+                  name: "Вика"
+              timestamp: "2026-02-17T22:25:26.485Z"
+              data:
+                message: "Давайте построим укрытие из пальм!"
+                tick: 5
+                is_initiative: true
+                action_result: null
+                sentiments:
+                  agent_2:
+                    delta: 0.05
+                    reason: "позитив: 'согласен'"
+              simulation_context:
+                scenario_name: "Необитаемый остров"
+                current_topic: "как построить укрытие из пальм?"
+                phase: "decide"
       responses:
         '202':
-          description: Event accepted
+          description: Событие принято
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventAcceptedResponse'
         '400':
-          description: Invalid request
+          description: Невалидный запрос
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован (невалидный или отсутствующий JWT)
         '429':
-          description: Too many requests
+          description: Слишком много запросов
           content:
             application/json:
               schema:
@@ -329,8 +431,10 @@ paths:
   /feed:
     get:
       tags: [Audit Service]
-      summary: Get recent events feed (from Redis)
+      summary: Получить ленту событий (из Redis)
       description: Получить последние события из Redis кеша
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -343,27 +447,30 @@ paths:
             maximum: 100
       responses:
         '200':
-          description: List of recent events
+          description: Список последних событий
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventsFeedResponse'
+        '401':
+          description: Не авторизован
         '500':
-          description: Internal server error
+          description: Внутренняя ошибка
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  
+
   /history:
     get:
       tags: [Audit Service]
-      summary: Get historical events (from PostgreSQL)
-      description: Получить события по агенту из PostgreSQL
+      summary: Получить историю событий (из PostgreSQL)
+      description: Получить события из PostgreSQL с пагинацией
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
-          description: Количество событий (максимум 1000)
           required: false
           schema:
             type: integer
@@ -372,7 +479,6 @@ paths:
             maximum: 1000
         - name: offset
           in: query
-          description: Смещение для пагинации
           required: false
           schema:
             type: integer
@@ -380,33 +486,35 @@ paths:
             minimum: 0
       responses:
         '200':
-          description: Historical events
+          description: Исторические события
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
+        '401':
+          description: Не авторизован
         '500':
-          description: Internal server error
+          description: Внутренняя ошибка
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  
+
   /agents/{agent_id}/events:
     get:
       tags: [Audit Service]
-      summary: Get events by agent ID
+      summary: Получить события агента
       description: Получить события конкретного агента
+      security:
+        - BearerAuth: []
       parameters:
         - name: agent_id
           in: path
           required: true
-          description: ID агента
           schema:
             type: string
         - name: limit
           in: query
-          description: Количество событий (максимум 500)
           required: false
           schema:
             type: integer
@@ -415,7 +523,7 @@ paths:
             maximum: 500
       responses:
         '200':
-          description: Agent events
+          description: События агента
           content:
             application/json:
               schema:
@@ -427,25 +535,24 @@ paths:
                       $ref: '#/components/schemas/Event'
                   count:
                     type: integer
-                    description: Количество возвращенных событий
                   limit:
                     type: integer
-                    description: Запрошенный лимит
                   agent_id:
                     type: string
-                    description: ID агента
                   source:
                     type: string
                     examples:
                       - "postgresql"
         '400':
-          description: Invalid agent_id
+          description: Невалидный agent_id
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
         '500':
-          description: Internal server error
+          description: Внутренняя ошибка
           content:
             application/json:
               schema:
@@ -454,18 +561,18 @@ paths:
   /agents/{agent_id}/stats:
     get:
       tags: [Audit Service]
-      summary: Get agent statistics
-      description: Получить статистику по агенту
+      summary: Получить статистику агента
+      security:
+        - BearerAuth: []
       parameters:
         - name: agent_id
           in: path
           required: true
-          description: ID агента
           schema:
             type: string
       responses:
         '200':
-          description: Agent statistics
+          description: Статистика агента
           content:
             application/json:
               schema:
@@ -485,48 +592,42 @@ paths:
                     additionalProperties:
                       type: integer
         '400':
-          description: Invalid agent_id
+          description: Невалидный agent_id
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
         '500':
-          description: Internal server error
+          description: Внутренняя ошибка
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  
+
   /ws:
     get:
       tags: [Audit Service]
-      summary: WebSocket connection
-      description: Подключение к WebSocket для real-time событий
+      summary: WebSocket подключение
+      description: Real-time подписка на события через WebSocket
       responses:
         '101':
           description: Switching Protocols (WebSocket)
         '400':
           description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  
+
   /ws/stats:
     get:
       tags: [Audit Service]
-      summary: WebSocket statistics
-      description: Получить статистику WebSocket подключений
+      summary: Статистика WebSocket
+      description: Количество подключенных клиентов
       responses:
         '200':
-          description: WebSocket stats
+          description: Статистика WebSocket
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebSocketStatsResponse'
         '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Внутренняя ошибка

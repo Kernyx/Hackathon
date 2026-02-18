@@ -58,7 +58,7 @@ func (r *RedisStore) SaveRecent(event interface{}) error {
 }
 
 func (r *RedisStore) GetRecent(limit int64) ([]map[string]interface{}, error) {
-	result, err := r.client.ZRevRange(r.ctx, "recent_events", 0, limit-1).Result()
+	result, err := r.client.ZRange(r.ctx, "recent_events", -limit, -1).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get events from redis: %w", err)
 	}

@@ -554,7 +554,715 @@ components:
           type: string
           examples:
             - спокойствие
-        happiness:
+        happiness:openapi: 3.1.0
+info:
+  title: AI Agent Service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/ai-agent
+
+paths:
+  /agents:
+    post:
+      tags: [AI Agent Service]
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '201':
+          description: AI Agent created
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /agents/{agentId}:
+    get:
+      tags: [AI Agent Service]
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    
+    delete:
+      tags: [AI Agent Service]
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+        
+    put:
+      tags: [AI Agent Service]
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents/relations:
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:openapi: 3.1.0
+info:
+  title: AI Agent Service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/ai-agent
+
+paths:
+  /agents:
+    post:
+      tags: [AI Agent Service]
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '201':
+          description: AI Agent created
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /agents/{agentId}:
+    get:
+      tags: [AI Agent Service]
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    
+    delete:
+      tags: [AI Agent Service]
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+        
+    put:
+      tags: [AI Agent Service]
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents/relations:
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: stringopenapi: 3.1.0
+info:
+  title: AI Agent Service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/ai-agent
+
+paths:
+  /agents:
+    post:
+      tags: [AI Agent Service]
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '201':
+          description: AI Agent created
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /agents/{agentId}:
+    get:
+      tags: [AI Agent Service]
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    
+    delete:
+      tags: [AI Agent Service]
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+        
+    put:
+      tags: [AI Agent Service]
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents/relations:
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:openapi: 3.1.0
+info:
+  title: AI Agent Service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/ai-agent
+
+paths:
+  /agents:
+    post:
+      tags: [AI Agent Service]
+      summary: Create AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '201':
+          description: AI Agent created
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /agents/{agentId}:
+    get:
+      tags: [AI Agent Service]
+      summary: Get AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Returns AI agent
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+    
+    delete:
+      tags: [AI Agent Service]
+      summary: Delete AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI Agent deleted
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+        
+    put:
+      tags: [AI Agent Service]
+      summary: Update AI agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the agent to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentDto'
+      responses:
+        '200':
+          description: AI Agent updated successfully
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents:
+    get:
+      tags: [AI Agent Service]
+      summary: Get agents related with user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of agents related to user
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+  
+  /users/{userId}/agents/relations:
+    get:
+      tags: [AI Agent Service]
+      summary: Get relations for user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the user
+      responses:
+        '200':
+          description: List of agent relations
+        '400':
+          description: Bad credentials
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    AiAgentDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits: 
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
+
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+        conscientiousness: 
+          type: integer
+        extraversion:
+          type: integer
+        agreeableness:
+          type: integer
+        neuroticism:
+          type: integer
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+      x-enum-varnames: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits: 
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
+
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+        conscientiousness: 
+          type: integer
+        extraversion:
+          type: integer
+        agreeableness:
+          type: integer
+        neuroticism:
+          type: integer
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+      x-enum-varnames: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+          format: uuid
+        username:
+          type: string
+          example: Alex
+        photoLink:
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits: 
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
+
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+        conscientiousness: 
+          type: integer
+        extraversion:
+          type: integer
+        agreeableness:
+          type: integer
+        neuroticism:
+          type: integer
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+      x-enum-varnames: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+          type: string
+          format: byte
+        isMale:
+          type: boolean
+        age:
+          type: integer
+          example: 22
+        interests:
+          type: string
+          example: Ездить по ночам на питбайке
+        personalityType:
+          $ref: '#/components/schemas/PersonalityType'
+        traits: 
+          $ref: '#/components/schemas/AgentTraits'
+        additionalInformation:
+          type: string
+          example: Любит яблоки
+
+    AgentTraits:
+      type: object
+      description: Черты характера
+      properties:
+        openness:
+          type: integer
+        conscientiousness: 
+          type: integer
+        extraversion:
+          type: integer
+        agreeableness:
+          type: integer
+        neuroticism:
+          type: integer
+
+    PersonalityType:
+      type: string
+      description: Тип личности агента
+      enum: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
+      x-enum-varnames: [ALTRUIST, MACHIAVELLIAN, REBEL, STOIC, INDIVIDUAL]
           type: number
           format: float
           minimum: 0

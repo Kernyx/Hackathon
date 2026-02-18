@@ -294,6 +294,8 @@ services:
       PYTHONUNBUFFERED: 1
     expose:
       - "8084"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["python", "main.py", "--api", "--port", "8084"]
     volumes:
       - ml-chroma-data:/app/data

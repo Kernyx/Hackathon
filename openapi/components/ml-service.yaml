@@ -1,0 +1,505 @@
+openapi: 3.1.0
+info:
+  title: ML AI Service
+  description: Сервис AI-агентов с памятью, настроением и расами. Агенты общаются между собой автономно и реагируют на сообщения пользователя.
+  version: 2.0.0
+
+servers:
+  - url: /api/v1/ml
+
+paths:
+  /users/{userId}/session:
+    post:
+      tags: [ML AI Service]
+      summary: Создать сессию
+      description: |
+        Создаёт или переинициализирует сессию для пользователя.
+        Создаёт агентов, выбирает сценарий, запускает фоновую симуляцию —
+        агенты начинают общаться между собой автоматически.
+      operationId: createSession
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreateRequest'
+      responses:
+        '200':
+          description: Сессия создана, агенты запущены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '400':
+          description: Неизвестный сценарий или расовый пресет
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+
+    get:
+      tags: [ML AI Service]
+      summary: Получить информацию о сессии
+      description: Возвращает текущее состояние сессии — список агентов, сценарий, текущий тик.
+      operationId: getSession
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Информация о сессии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '404':
+          description: Сессия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+
+  /users/{userId}/session/settings:
+    patch:
+      tags: [ML AI Service]
+      summary: Изменить настройки сессии
+      description: |
+        Обновляет настройки текущей сессии.
+        Позволяет изменить скорость общения агентов (задержку в секундах между сообщениями).
+      operationId: updateSessionSettings
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionSettingsRequest'
+            examples:
+              fast:
+                summary: Быстрая скорость
+                value:
+                  speed_seconds: 1.0
+              normal:
+                summary: Нормальная скорость
+                value:
+                  speed_seconds: 5.0
+              slow:
+                summary: Медленная скорость
+                value:
+                  speed_seconds: 15.0
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSettingsResponse'
+        '400':
+          description: Невалидные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+        '404':
+          description: Сессия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+
+  /users/{userId}/messages:
+    post:
+      tags: [ML AI Service]
+      summary: Отправить сообщение агентам
+      description: |
+        Отправляет сообщение от пользователя в обсуждение.
+        Агенты генерируют ответы. Если target_agent указан — личное сообщение одному агенту,
+        иначе — сообщение всем.
+      operationId: sendMessage
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+            examples:
+              broadcast:
+                summary: Сообщение всем агентам
+                value:
+                  message: "Привет, как дела?"
+              direct:
+                summary: Личное сообщение агенту
+                value:
+                  message: "Алиса, что ты думаешь?"
+                  target_agent: "Алиса"
+      responses:
+        '200':
+          description: Ответы агентов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Сессия или агент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+        '500':
+          description: Ошибка генерации ответа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+
+  /users/{userId}/conversation:
+    get:
+      tags: [ML AI Service]
+      summary: Получить историю сообщений (polling)
+      description: |
+        Возвращает историю сообщений для polling.
+        Фронтенд вызывает этот эндпоинт по таймеру, чтобы подтягивать новые сообщения,
+        которые агенты сгенерировали в фоне.
+
+        **Пример polling:**
+        1. `GET /conversation?after_tick=-1&limit=50` → получить последние 50
+        2. Запомнить `last_tick` из ответа
+        3. `GET /conversation?after_tick=42&limit=50` → только новые после тика 42
+      operationId: getConversation
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: after_tick
+          in: query
+          required: false
+          description: Вернуть сообщения после этого тика (для polling). -1 = все сообщения.
+          schema:
+            type: integer
+            default: -1
+            examples:
+              - -1
+              - 42
+        - name: limit
+          in: query
+          required: false
+          description: Максимум сообщений в ответе
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          description: Сессия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MlErrorResponse'
+
+components:
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Идентификатор пользователя
+      schema:
+        type: string
+      examples:
+        - user-123
+        - 550e8400-e29b-41d4-a716-446655440000
+
+  schemas:
+    # ── Запросы ──
+
+    SessionCreateRequest:
+      type: object
+      description: Параметры для создания сессии
+      properties:
+        scenario:
+          type: string
+          description: Ключ сценария
+          default: desert_island
+          enum:
+            - desert_island
+            - space_station
+            - zombie_apocalypse
+            - medieval_tavern
+        race_preset:
+          type: string
+          description: Ключ расового пресета агентов
+          default: humans
+          enum:
+            - humans
+            - fantasy_party
+            - mixed_survival
+            - classic_party
+
+    SessionSettingsRequest:
+      type: object
+      description: Настройки скорости симуляции
+      required:
+        - speed_seconds
+      properties:
+        speed_seconds:
+          type: number
+          format: float
+          description: |
+            Задержка между сообщениями агентов в секундах.
+            Чем меньше значение — тем быстрее агенты общаются.
+            Минимум 0.5 секунды, максимум 60 секунд.
+          minimum: 0.5
+          maximum: 60.0
+          default: 5.0
+          examples:
+            - 1.0
+            - 5.0
+            - 15.0
+
+    MessageRequest:
+      type: object
+      description: Сообщение от пользователя
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Текст сообщения
+          minLength: 1
+          maxLength: 2000
+          examples:
+            - "Привет, как дела?"
+            - "Нужно построить укрытие!"
+        target_agent:
+          type: string
+          nullable: true
+          description: Имя агента для личного сообщения. null / не указано = сообщение всем.
+          examples:
+            - "Алиса"
+            - "Борис"
+
+    # ── Ответы ──
+
+    SessionSettingsResponse:
+      type: object
+      description: Подтверждение обновления настроек
+      properties:
+        user_id:
+          type: string
+          description: ID пользователя
+        speed_seconds:
+          type: number
+          format: float
+          description: Установленная задержка между сообщениями (сек)
+        message:
+          type: string
+          description: Описание применённых изменений
+          examples:
+            - "Скорость обновлена: 5.0 сек между сообщениями"
+
+    SessionInfo:
+      type: object
+      description: Полная информация о сессии
+      properties:
+        user_id:
+          type: string
+        is_active:
+          type: boolean
+          description: Активна ли сессия
+        scenario:
+          type: string
+          description: Название текущего сценария
+          examples:
+            - "Необитаемый остров"
+        agents:
+          type: array
+          description: Список агентов в сессии
+          items:
+            $ref: '#/components/schemas/AgentInfo'
+        tick:
+          type: integer
+          description: Текущий тик симуляции
+        available_scenarios:
+          type: array
+          items:
+            type: string
+          description: Доступные сценарии
+        available_race_presets:
+          type: array
+          items:
+            type: string
+          description: Доступные расовые пресеты
+
+    AgentInfo:
+      type: object
+      description: Информация об агенте
+      properties:
+        agent_id:
+          type: string
+          examples:
+            - agent_1
+        name:
+          type: string
+          examples:
+            - Алиса
+        race:
+          type: string
+          examples:
+            - human
+        race_emoji:
+          type: string
+          examples:
+            - "[Чел]"
+        race_name:
+          type: string
+          examples:
+            - Человек
+        personality:
+          type: string
+          description: Тип личности
+          examples:
+            - "Альтруист (добрый)"
+        mood:
+          type: string
+          description: Текущее настроение
+          examples:
+            - решимость
+            - тревога
+            - интерес
+        is_male:
+          type: boolean
+        age:
+          type: integer
+          examples:
+            - 25
+
+    MessageResponse:
+      type: object
+      description: Ответ на сообщение пользователя
+      properties:
+        user_message:
+          type: string
+          description: Исходное сообщение пользователя
+        target:
+          type: string
+          description: '"all" или имя конкретного агента'
+          examples:
+            - all
+            - Алиса
+        responses:
+          type: array
+          description: Ответы агентов
+          items:
+            $ref: '#/components/schemas/AgentResponse'
+        tick:
+          type: integer
+          description: Тик после обработки
+        session_id:
+          type: string
+
+    AgentResponse:
+      type: object
+      description: Ответ одного агента
+      properties:
+        agent_id:
+          type: string
+        name:
+          type: string
+        text:
+          type: string
+          description: Текст ответа агента
+        tick:
+          type: integer
+        race:
+          type: string
+        race_emoji:
+          type: string
+        mood:
+          type: string
+          description: Настроение агента после ответа
+
+    ConversationResponse:
+      type: object
+      description: История сообщений для polling
+      properties:
+        user_id:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationEntry'
+        total:
+          type: integer
+          description: Общее количество сообщений в сессии
+        last_tick:
+          type: integer
+          description: Последний тик (для polling — передать как after_tick в следующий запрос)
+        simulation_running:
+          type: boolean
+          description: Запущена ли фоновая симуляция
+
+    ConversationEntry:
+      type: object
+      description: Одно сообщение в истории
+      properties:
+        tick:
+          type: integer
+        agent_id:
+          type: string
+          description: ID агента или "system" для системных сообщений
+        name:
+          type: string
+          description: Отображаемое имя
+        text:
+          type: string
+          description: Текст сообщения
+        is_event:
+          type: boolean
+          description: Является ли это случайным событием
+          default: false
+        is_new_topic:
+          type: boolean
+          description: Начало новой темы обсуждения
+          default: false
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          examples:
+            - ok
+        model:
+          type: string
+          description: Используемая LLM модель
+          examples:
+            - qwen-3-14b-instruct
+        llm_url:
+          type: string
+          description: URL LLM API
+          examples:
+            - "http://127.0.0.1:1234/v1"
+
+    MlErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Описание ошибки
+          examples:
+            - "Сессия для пользователя 'user-123' не найдена."
