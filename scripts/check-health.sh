@@ -228,13 +228,17 @@ fi
 check_url "Public Frontend" "https://$DOMAIN" "200"
 check_url "Public API /actuator/health" "https://$API_DOMAIN/actuator/health" "200"
 check_url "Public API /audit/feed" "https://$API_DOMAIN/api/v1/audit/feed" "200"
-# ML: проверяем через API-домен; 404 при запуске с VPS — часто hairpinning (скрипт на том же хосте)
+# ML: проверяем через API-домен; 404 при запуске с VPS — часто hairpinning; тогда проверяем Caddy→ML изнутри
 ML_URL="https://$API_DOMAIN/api/v1/ml/users/test123/session"
 ML_CODE=$(curl -s -L -k -o /dev/null -w "%{http_code}" --max-time 5 "$ML_URL")
 if [ "$ML_CODE" = "200" ]; then
     print_status "OK" "Public API /api/v1/ml (Caddy→ML) -> 200"
 elif [ "$ML_CODE" = "404" ]; then
-    print_status "WARN" "Public API /api/v1/ml -> 404 (при запуске с VPS возможно hairpinning; снаружи проверьте вручную)"
+    if docker exec hackathon-go wget -qO- --timeout=5 http://ml-service:8084/health >/dev/null 2>&1; then
+        print_status "OK" "Public API /api/v1/ml: ML доступен из сети (с этого хоста публичный запрос 404 — hairpinning)"
+    else
+        print_status "WARN" "Public API /api/v1/ml -> 404 (при запуске с VPS возможно hairpinning; снаружи проверьте вручную)"
+    fi
 elif [ "$ML_CODE" = "000" ]; then
     print_status "FAIL" "Public API /api/v1/ml -> Connection Refused / Timeout"
 else
