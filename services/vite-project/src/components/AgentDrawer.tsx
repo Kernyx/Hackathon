@@ -66,6 +66,14 @@ const UI_ROLE_TO_API_ENUM: Record<string, string> = {
   "Thinker": "STOIC"
 };
 
+const API_ENUM_TO_UI_ROLE: Record<string, PersonalityRole> = {
+  "INDIVIDUAL": "Custom",
+  "ALTRUIST": "Analyst",
+  "MACHIAVELLIAN": "Diplomat",
+  "REBEL": "Aggressor",
+  "STOIC": "Thinker"
+};
+
 type AgentDrawerProps = {
   agent: AgentData | null
   open: boolean
@@ -75,14 +83,12 @@ type AgentDrawerProps = {
 
 export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentDrawerProps) {
   const isMobile = useIsMobile()
-
   const [isLoading, setIsLoading] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
-
   const [name, setName] = React.useState("");
   const [age, setAge] = React.useState<string | number>("");
   const [interests, setInterests] = React.useState("");
-  const [role, setRole] = React.useState<PersonalityRole>("Custom");
+  const [role, setRole] = React.useState("Custom");
   const [selectedAvatar, setSelectedAvatar] = React.useState("Alex");
   const [traits, setTraits] = React.useState(PERSONALITY_PRESETS.Custom);
   const [male, setMale] = React.useState(true);
@@ -90,7 +96,6 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
   React.useEffect(() => {
     if (open) {
       setServerError(null);
-
       if (agent) {
         setName(agent.name || "");
         setAge(agent.age || "");
@@ -98,9 +103,14 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
         setInterests(agent.interests || "");
         setSelectedAvatar(agent.avatarSeed || "Alex");
 
-        const mappedRole = agent.role && agent.role in PERSONALITY_PRESETS
-          ? (agent.role as PersonalityRole)
-          : "Custom";
+        // ← ИСПРАВЛЕНО: Сначала пробуем найти роль в UI-преcетах, затем маппим из API enum
+        let mappedRole: PersonalityRole = "Custom";
+
+        if (agent.role && agent.role in PERSONALITY_PRESETS) {
+          mappedRole = agent.role as PersonalityRole;
+        } else if (agent.role && agent.role in API_ENUM_TO_UI_ROLE) {
+          mappedRole = API_ENUM_TO_UI_ROLE[agent.role];
+        }
 
         setRole(mappedRole);
         setTraits(agent.traits || PERSONALITY_PRESETS[mappedRole]);
@@ -131,7 +141,6 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
     setServerError(null);
     try {
       const userId = localStorage.getItem("userId");
-
       const isEdit = agent?.isSynced === true;
 
       if (!userId && !isEdit) {
@@ -160,6 +169,7 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
         isMale: male,
         age: Number(age),
         interests,
+        // ← Отправляем API enum на сервер
         personalityType: UI_ROLE_TO_API_ENUM[role] ?? "INDIVIDUAL",
         traits: traits,
         additionalInformation: ""
@@ -179,7 +189,7 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
       onSaveSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Ошибка при сохранении агента:", err);
+      console.error("Ошибка при сохранении агента: ", err);
       const message = err?.response?.data?.message || err?.message || "Не удалось сохранить агента";
       setServerError(message);
     } finally {
@@ -189,21 +199,23 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
 
   return (
     <Drawer direction={isMobile ? "bottom" : "right"} open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-full w-full sm:max-w-100 ml-auto rounded-none shadow-2xl bg-card">
-        <DrawerHeader className="gap-1">
+      <DrawerContent>
+        <DrawerHeader>
           <DrawerTitle>{agent?.isSynced ? "Редактирование" : "Новый агент"}</DrawerTitle>
           <DrawerDescription>Настройка параметров ИИ-агента</DrawerDescription>
         </DrawerHeader>
 
         {serverError && (
           <div className="px-4 pb-2 animate-in fade-in slide-in-from-top-2">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Ошибка</AlertTitle>
-              <AlertDescription>
-                {serverError}
-              </AlertDescription>
-            </Alert>
+            <div className="rounded-md border border-red-500 bg-red-50 p-3 text-red-800">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">Ошибка</p>
+                  <p className="text-sm opacity-90">{serverError}</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -243,67 +255,67 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
                 </Label>
 
                 <div className="space-y-3">
-                   <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-xs">
                     <span className="font-medium">O (Openness)</span>
                     <span className="text-primary font-mono">{traits.openness}%</span>
-                   </div>
-                   <Slider
+                  </div>
+                  <Slider
                     disabled={isLoading}
                     value={[traits.openness]} max={100} step={1}
                     onValueChange={(val) => handleTraitChange('openness', val)}
-                   />
+                  />
                 </div>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between text-xs">
-                        <span className="font-medium">C (Conscientiousness) — Добросовестность</span>
-                        <span className="text-primary font-mono">{traits.conscientiousness}%</span>
-                    </div>
-                    <Slider
-                        disabled={isLoading}
-                        value={[traits.conscientiousness]}
-                        max={100} step={1}
-                        onValueChange={(val) => handleTraitChange('conscientiousness', val)}
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">C (Conscientiousness) — Добросовестность</span>
+                    <span className="text-primary font-mono">{traits.conscientiousness}%</span>
+                  </div>
+                  <Slider
+                    disabled={isLoading}
+                    value={[traits.conscientiousness]}
+                    max={100} step={1}
+                    onValueChange={(val) => handleTraitChange('conscientiousness', val)}
+                  />
                 </div>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between text-xs">
-                        <span className="font-medium">E (Extraversion) — Экстраверсия</span>
-                        <span className="text-primary font-mono">{traits.extraversion}%</span>
-                    </div>
-                    <Slider
-                        disabled={isLoading}
-                        value={[traits.extraversion]}
-                        max={100} step={1}
-                        onValueChange={(val) => handleTraitChange('extraversion', val)}
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">E (Extraversion) — Экстраверсия</span>
+                    <span className="text-primary font-mono">{traits.extraversion}%</span>
+                  </div>
+                  <Slider
+                    disabled={isLoading}
+                    value={[traits.extraversion]}
+                    max={100} step={1}
+                    onValueChange={(val) => handleTraitChange('extraversion', val)}
+                  />
                 </div>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between text-xs">
-                        <span className="font-medium">A (Agreeableness) — Доброжелательность</span>
-                        <span className="text-primary font-mono">{traits.agreeableness}%</span>
-                    </div>
-                    <Slider
-                        disabled={isLoading}
-                        value={[traits.agreeableness]}
-                        max={100} step={1}
-                        onValueChange={(val) => handleTraitChange('agreeableness', val)}
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">A (Agreeableness) — Доброжелательность</span>
+                    <span className="text-primary font-mono">{traits.agreeableness}%</span>
+                  </div>
+                  <Slider
+                    disabled={isLoading}
+                    value={[traits.agreeableness]}
+                    max={100} step={1}
+                    onValueChange={(val) => handleTraitChange('agreeableness', val)}
+                  />
                 </div>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between text-xs">
-                        <span className="font-medium">N (Neuroticism) — Невротизм</span>
-                        <span className="text-primary font-mono">{traits.neuroticism}%</span>
-                    </div>
-                    <Slider
-                        disabled={isLoading}
-                        value={[traits.neuroticism]}
-                        max={100} step={1}
-                        onValueChange={(val) => handleTraitChange('neuroticism', val)}
-                    />
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium">N (Neuroticism) — Невротизм</span>
+                    <span className="text-primary font-mono">{traits.neuroticism}%</span>
+                  </div>
+                  <Slider
+                    disabled={isLoading}
+                    value={[traits.neuroticism]}
+                    max={100} step={1}
+                    onValueChange={(val) => handleTraitChange('neuroticism', val)}
+                  />
                 </div>
               </div>
 
@@ -314,10 +326,10 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
                   value={age}
                   disabled={isLoading}
                   onChange={(e) => {
-                      const val = e.target.value;
-                      const onlyNumbers = val.replace(/\D/g, "");
-                      setAge(onlyNumbers);
-                    }}
+                    const val = e.target.value;
+                    const onlyNumbers = val.replace(/\D/g, "");
+                    setAge(onlyNumbers);
+                  }}
                   placeholder="Введите возраст..."
                 />
               </div>
@@ -393,5 +405,4 @@ export function AgentDrawer({ agent, open, onOpenChange, onSaveSuccess }: AgentD
     </Drawer>
   )
 }
-
 export default AgentDrawer;
