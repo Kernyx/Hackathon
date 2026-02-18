@@ -141,22 +141,24 @@ const AgentGraph: React.FC<AgentGraphProps> = ({ onNodeSelect }) => {
     }
   }, [data.nodes.length]);
 
+  /*
   // Загрузка аватаров
-useEffect(() => {
-  data.nodes.forEach(node => {
-    if (!node.img) {
-      const img = new Image();
-      img.crossOrigin = "anonymous"; // ← FIX!
-      img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
-      img.onload = () => { 
-        node.img = img; 
-      };
-      img.onerror = () => {
-        console.error(`Failed to load avatar for ${node.name}`);
-      };
-    }
-  });
-}, [data.nodes]);
+  useEffect(() => {
+    data.nodes.forEach(node => {
+      if (!node.img) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(node.avatarSeed || node.name)}`;
+        img.onload = () => { 
+          node.img = img; 
+        };
+        img.onerror = () => {
+          console.error(`Failed to load avatar for ${node.name}`);
+        };
+      }
+    });
+  }, [data.nodes]);
+  */
 
   const drawNode = (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const viewportScale = getViewportScale();
@@ -173,6 +175,7 @@ useEffect(() => {
     ctx.lineWidth = 2 / globalScale;
     ctx.stroke();
 
+    /*
     // Аватар
     if (img && img.complete) {
       ctx.save();
@@ -182,6 +185,7 @@ useEffect(() => {
       ctx.drawImage(img, x - size, y - size, size * 2, size * 2);
       ctx.restore();
     }
+    */
 
     // Текст имени
     const fontSize = Math.max((14 * viewportScale) / globalScale, 7);
