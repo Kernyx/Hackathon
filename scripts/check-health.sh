@@ -149,11 +149,11 @@ check_service "Auth /actuator/health" "hackathon-auth" \
 check_service "Java /actuator/health" "hackathon-java" \
     "wget -qO- http://localhost:8080/actuator/health"
 
-check_service "Go /api/v1/audit/feed" "hackathon-go" \
-    "wget -qO- http://localhost:8083/api/v1/audit/feed"
+check_service "Go /health" "hackathon-go" \
+    "wget -qO- http://localhost:8083/health"
 
 check_service "ML /health" "hackathon-ml" \
-    "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8083/health')\""
+    "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8084/health')\""
 
 check_service "Redis PING" "hackathon-redis" \
     "redis-cli ping"

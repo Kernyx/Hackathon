@@ -57,6 +57,11 @@ fi
 # ── Статус ──
 docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
 
+# ── Health check ──
+if [ -f "$PROJECT_ROOT/scripts/check-health.sh" ]; then
+    bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
+fi
+
 # ── Время деплоя ──
 DEPLOY_END=$(date +%s)
 DURATION=$((DEPLOY_END - DEPLOY_START))
