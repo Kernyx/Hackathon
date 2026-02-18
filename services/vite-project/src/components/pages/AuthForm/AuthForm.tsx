@@ -8,6 +8,7 @@ import { Mail, Lock, User } from 'lucide-react';
 import { saveUserIdToStorage } from '@/lib/storage.ts';
 import { jwtDecode } from "jwt-decode"; // Не забудь установить
 import { OpenAPI } from '../../../../api/core/OpenAPI.ts';
+import { OpenAPI as AuditAPI } from '../../../../api/audit/core/OpenAPI.ts';
 
 // Типизация того, что лежит внутри твоего JWT
 interface MyJwtPayload {
@@ -100,6 +101,11 @@ const AuthForm: React.FC = () => {
 
                     OpenAPI.TOKEN = token;
                     OpenAPI.HEADERS = {
+                        Authorization: `Bearer ${token}`,
+                    }
+
+                    AuditAPI.TOKEN = token;
+                    AuditAPI.HEADERS = {
                         Authorization: `Bearer ${token}`,
                     }
 
