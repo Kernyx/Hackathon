@@ -44,7 +44,8 @@ export function NavUser({
       localStorage.removeItem('all_agents_catalog');
       
       OpenAPI.TOKEN = undefined; 
-
+      OpenAPI.HEADERS = undefined;
+      localStorage.removeItem('token')
 
       navigate('/login');
   };
