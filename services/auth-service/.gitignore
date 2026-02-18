@@ -5,7 +5,6 @@ target/
 !**/src/test/**/target/
 src/main/resources/token
 
-### STS ###
 .apt_generated
 .classpath
 .factorypath
@@ -14,13 +13,11 @@ src/main/resources/token
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
 .idea
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -30,5 +27,4 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
 .vscode/

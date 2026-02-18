@@ -37,7 +37,6 @@ besthackaton.duckdns.org {
         }
     }
 
-    # API маршрутизация — перехватываем /api/ до fallback на frontend
     handle /api/v1/auth* {
         reverse_proxy auth-service:8080 {
             transport http {
@@ -78,7 +77,6 @@ besthackaton.duckdns.org {
         }
     }
 
-    # Всё остальное → frontend
     handle {
         reverse_proxy frontend:8082 {
             transport http {
@@ -100,7 +98,7 @@ besthackaton.duckdns.org {
 }
 
 # ============================================
-# UNIFIED API GATEWAY
+# API GATEWAY
 # ============================================
 api.besthackaton.duckdns.org {
     log {
@@ -111,7 +109,6 @@ api.besthackaton.duckdns.org {
         format json
     }
 
-    # CORS для всех API
     header {
         -Server
         Access-Control-Allow-Origin "*"
@@ -120,12 +117,11 @@ api.besthackaton.duckdns.org {
         Access-Control-Max-Age "3600"
     }
 
-    # OPTIONS preflight
     @options method OPTIONS
     respond @options 204
 
     # ========================================
-    # /actuator/* → Spring Boot actuator java-backend (health и т.п.)
+    # /actuator/* java-backend
     # ========================================
     handle /actuator/* {
         reverse_proxy java-backend:8080 {
@@ -137,7 +133,7 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/auth* → Java Backend (auth эндпоинты)
+    # /api/v1/auth* java-backend
     # ========================================
     handle /api/v1/auth* {
         rate_limit {
@@ -159,7 +155,7 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/ml* → ML Service
+    # /api/v1/ml* ml-service
     # ========================================
     handle /api/v1/ml* {
         rate_limit {
@@ -181,7 +177,7 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/ai-agent* → AI Agent Service (java-backend)
+    # /api/v1/ai-agent* java-backend
     # ========================================
     handle /api/v1/ai-agent* {
         rate_limit {
@@ -203,7 +199,7 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # /api/v1/audit* → Go Backend (audit service)
+    # /api/v1/audit* go-backend
     # ========================================
     handle /api/v1/audit* {
         rate_limit {
@@ -227,7 +223,6 @@ api.besthackaton.duckdns.org {
     }
 
     # ========================================
-    # Fallback для неизвестных путей
     # ========================================
     handle {
         header Content-Type application/json
