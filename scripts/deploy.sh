@@ -1,127 +1,207 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Корень проекта (на VPS обычно /opt/hackathon)
+# ══════════════════════════════════════════════
+# Hackathon Deploy Script v2
+# Вызывается из GitHub Actions (deploy.yml)
+# или вручную: bash scripts/deploy.sh [service1 service2 ...]
+# ══════════════════════════════════════════════
+
 PROJECT_ROOT="${DEPLOY_ROOT:-/opt/hackathon}"
 LOG_FILE="$PROJECT_ROOT/logs/deploy.log"
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-2}"
+BUILD_TIMEOUT="${BUILD_TIMEOUT:-300}"  # 5 минут на сборку одного сервиса
 
-# Добавление сервиса в список без дублей
-add_service() {
-    local svc="$1"
-    for s in "${CHANGED_SERVICES[@]}"; do
-        [ "$s" = "$svc" ] && return
-    done
-    CHANGED_SERVICES+=("$svc")
-}
+# ─── Logging ────────────────────────────────
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 
-# Ожидание healthy-статуса всех контейнеров (макс 90 сек)
-wait_for_healthy() {
-    log "⏳ Ожидание готовности сервисов..."
-    local max_wait=90
-    local elapsed=0
-    local interval=5
-
-    while [ "$elapsed" -lt "$max_wait" ]; do
-        STARTING=$(docker compose --profile all ps 2>/dev/null | grep -c "(health: starting)" || true)
-        if [ "$STARTING" -eq 0 ]; then
-            log "✅ Все сервисы готовы (${elapsed}s)"
-            return 0
-        fi
-        log "⏳ Ещё запускаются: $STARTING сервисов... (${elapsed}/${max_wait}s)"
-        sleep "$interval"
-        elapsed=$((elapsed + interval))
-    done
-
-    log "⚠️ Таймаут ожидания (${max_wait}s). Некоторые сервисы могут быть не готовы."
-    return 0
-}
-
-# Сборка с автоматическим восстановлением при битом кэше BuildKit
-build_with_recovery() {
-    local build_cmd="$1"
-    BUILD_LOG=$(mktemp)
-
-    if ! eval "$build_cmd" 2>&1 | tee -a "$LOG_FILE" "$BUILD_LOG"; then
-        if grep -q "snapshot.*does not exist\|failed to stat active key" "$BUILD_LOG"; then
-            log "⚠️ BuildKit cache повреждён — очистка и повторная сборка..."
-            docker builder prune -a -f 2>&1 | tee -a "$LOG_FILE"
-            eval "$build_cmd" 2>&1 | tee -a "$LOG_FILE"
-        else
-            log "❌ Ошибка сборки"
-            rm -f "$BUILD_LOG"
-            return 1
-        fi
+# ─── Cleanup on exit ────────────────────────
+cleanup() {
+    local exit_code=$?
+    [ -f "${ROLLBACK_FILE:-}" ] && rm -f "$ROLLBACK_FILE"
+    [ -f "${BUILD_LOG:-}" ] && rm -f "$BUILD_LOG"
+    if [ "$exit_code" -ne 0 ]; then
+        log "❌ Deploy script exited with code $exit_code"
     fi
-    rm -f "$BUILD_LOG"
-    return 0
 }
+trap cleanup EXIT
 
-# === НАЧАЛО ===
-cd "$PROJECT_ROOT" || { echo "Ошибка: директория $PROJECT_ROOT не найдена"; exit 1; }
-
-# Создание директорий (первый запуск)
+# ─── Directories ────────────────────────────
+cd "$PROJECT_ROOT" || { echo "Ошибка: $PROJECT_ROOT не найдена"; exit 1; }
 mkdir -p "$PROJECT_ROOT/logs/caddy" \
          "$PROJECT_ROOT/data/postgres" \
          "$PROJECT_ROOT/backups/postgres"
 
-# Проверка .env
-[ ! -f "$PROJECT_ROOT/.env" ] && { log "❌ Файл .env не найден!"; exit 1; }
-
-# Проверка Docker
+# ─── Pre-flight checks ─────────────────────
+[ ! -f "$PROJECT_ROOT/.env" ] && { log "❌ .env не найден!"; exit 1; }
 command -v docker &>/dev/null || { log "❌ Docker не установлен"; exit 1; }
 docker compose version &>/dev/null || { log "❌ Docker Compose не доступен"; exit 1; }
 
+# Disk space check
+AVAIL_MB=$(df -m "$PROJECT_ROOT" | awk 'NR==2{print $4}')
+if [ "$AVAIL_MB" -lt 500 ]; then
+    log "❌ ABORT: ${AVAIL_MB}MB свободно, нужно минимум 500MB"
+    log "Попробуйте: docker system prune -af --volumes"
+    exit 1
+fi
+log "💾 Свободно: ${AVAIL_MB}MB"
+
 log "🚀 Деплой запущен"
 
-# Анализ изменений (код уже обновлён через workflow или вручную)
-CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-if [[ -z "$CHANGED" ]]; then
-    log "Нет изменений — проверка здоровья"
-    docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" 2>/dev/null | tee -a "$LOG_FILE" || true
-    [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
+# ─── Service mapping ───────────────────────
+declare -A SMAP=(
+    ["services/vite-project"]="frontend"
+    ["services/auth-service"]="auth-service"
+    ["services/ai-agent-service"]="java-backend"
+    ["services/go-backend"]="go-backend"
+    ["services/ml-ai-service"]="ml-service"
+    ["services/caddy"]="caddy"
+)
+
+# ─── Determine changed services ───────────
+CHANGED_SERVICES=()
+
+if [ $# -gt 0 ]; then
+    # Сервисы переданы как аргументы
+    CHANGED_SERVICES=("$@")
+    log "🔧 Сервисы из аргументов: ${CHANGED_SERVICES[*]}"
+else
+    # Auto-detect из git diff
+    CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+
+    if [ -z "$CHANGED" ]; then
+        log "ℹ️ Нет изменений — только health check"
+        [ -f "$PROJECT_ROOT/scripts/check-health.sh" ] && bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
+        exit 0
+    fi
+
+    log "Изменённые файлы: $(echo "$CHANGED" | tr '\n' ' ')"
+
+    # docker-compose.yml или .env → ручной деплой
+    if echo "$CHANGED" | grep -qE '^(docker-compose\.yml|\.env)$'; then
+        log "⚠️ docker-compose.yml / .env изменены — требуется ручная проверка"
+        log "Запустите: docker compose --profile all up -d"
+        exit 0
+    fi
+
+    for dir in "${!SMAP[@]}"; do
+        if echo "$CHANGED" | grep -q "^${dir}/"; then
+            svc="${SMAP[$dir]}"
+            log "📦 Изменения в: $svc"
+            CHANGED_SERVICES+=("$svc")
+        fi
+    done
+fi
+
+if [ "${#CHANGED_SERVICES[@]}" -eq 0 ]; then
+    log "ℹ️ Нет изменений в сервисах"
     exit 0
 fi
 
-log "Изменены файлы: $(echo "$CHANGED" | tr '\n' ' ')"
+# ─── Save rollback state ──────────────────
+ROLLBACK_FILE=$(mktemp /tmp/rollback-XXXXXX.txt)
+for svc in "${CHANGED_SERVICES[@]}"; do
+    CONTAINER_ID=$(docker compose ps -q "$svc" 2>/dev/null || true)
+    if [ -n "$CONTAINER_ID" ]; then
+        IMAGE=$(docker inspect --format='{{.Image}}' "$CONTAINER_ID" 2>/dev/null || true)
+        echo "${svc}|${IMAGE}" >> "$ROLLBACK_FILE"
+    fi
+done
+log "📸 Состояние сохранено для rollback ($(wc -l < "$ROLLBACK_FILE") сервисов)"
 
-# Маппинг директорий → сервисов compose
-SERVICES_MAP=(
-    "services/vite-project:frontend"
-    "services/auth-service:auth-service"
-    "services/ai-agent-service:java-backend"
-    "services/go-backend:go-backend"
-    "services/ml-ai-service:ml-service"
-    "services/caddy:caddy"
-)
+# ─── Build & Deploy ───────────────────────
+build_service() {
+    local svc="$1"
+    BUILD_LOG=$(mktemp /tmp/build-XXXXXX.log)
 
-# Если изменился docker-compose.yml или .env — пропускаем (ручной деплой)
-if echo "$CHANGED" | grep -qE '^(docker-compose\.yml|\.env)$'; then
-    log "Изменения в docker-compose.yml / .env — требуется ручной деплой, пропуск"
-else
-    # Точечная пересборка изменённых сервисов
-    CHANGED_SERVICES=()
-    for mapping in "${SERVICES_MAP[@]}"; do
-        dir="${mapping%%:*}"
-        service="${mapping##*:}"
-        if echo "$CHANGED" | grep -q "^${dir}/"; then
-            log "Изменения в сервисе: ${service}"
-            add_service "$service"
+    log "🔨 Сборка: $svc"
+
+    if ! timeout "$BUILD_TIMEOUT" docker compose up -d --build --no-deps "$svc" 2>&1 | tee -a "$LOG_FILE" "$BUILD_LOG"; then
+        # BuildKit cache corruption → автоматическое восстановление
+        if grep -q "snapshot.*does not exist\|failed to stat active key" "$BUILD_LOG" 2>/dev/null; then
+            log "⚠️ BuildKit cache повреждён — очистка и повторная сборка..."
+            docker builder prune -a -f 2>&1 | tee -a "$LOG_FILE"
+            timeout "$BUILD_TIMEOUT" docker compose up -d --build --no-deps "$svc" 2>&1 | tee -a "$LOG_FILE"
+        else
+            log "❌ Ошибка сборки $svc"
+            rm -f "$BUILD_LOG"
+            return 1
         fi
+    fi
+
+    rm -f "$BUILD_LOG"
+    return 0
+}
+
+DEPLOY_OK=true
+FAILED_SVC=""
+
+for svc in "${CHANGED_SERVICES[@]}"; do
+    if ! build_service "$svc"; then
+        DEPLOY_OK=false
+        FAILED_SVC="$svc"
+        break
+    fi
+done
+
+# ─── Wait for healthy ─────────────────────
+if [ "$DEPLOY_OK" = true ]; then
+    log "⏳ Ожидание готовности сервисов..."
+    MAX_WAIT=120
+    ELAPSED=0
+    INTERVAL=5
+
+    while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
+        STARTING=$(docker compose --profile all ps 2>/dev/null | grep -c "(health: starting)" || true)
+        UNHEALTHY=$(docker compose --profile all ps 2>/dev/null | grep -c "unhealthy" || true)
+
+        if [ "$STARTING" -eq 0 ] && [ "$UNHEALTHY" -eq 0 ]; then
+            log "✅ Все сервисы готовы (${ELAPSED}s)"
+            break
+        fi
+
+        if [ "$UNHEALTHY" -gt 0 ] && [ "$ELAPSED" -gt 60 ]; then
+            log "❌ $UNHEALTHY сервисов unhealthy после ${ELAPSED}s"
+            DEPLOY_OK=false
+            break
+        fi
+
+        log "⏳ starting=$STARTING unhealthy=$UNHEALTHY (${ELAPSED}/${MAX_WAIT}s)"
+        sleep "$INTERVAL"
+        ELAPSED=$((ELAPSED + INTERVAL))
     done
 
-    if [ "${#CHANGED_SERVICES[@]}" -gt 0 ]; then
-        log "Пересборка: ${CHANGED_SERVICES[*]}"
-        build_with_recovery "COMPOSE_PARALLEL_LIMIT=${COMPOSE_PARALLEL_LIMIT} docker compose up -d --build ${CHANGED_SERVICES[*]}"
+    if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+        UNHEALTHY=$(docker compose --profile all ps 2>/dev/null | grep -c "unhealthy" || true)
+        if [ "$UNHEALTHY" -gt 0 ]; then
+            log "❌ Таймаут: $UNHEALTHY unhealthy"
+            DEPLOY_OK=false
+        else
+            log "⚠️ Таймаут, но все сервисы ОК"
+        fi
     fi
-    log "✅ Деплой завершён"
 fi
 
-# Ожидание готовности сервисов
-wait_for_healthy
+# ─── Rollback on failure ──────────────────
+if [ "$DEPLOY_OK" = false ]; then
+    log "🔄 ROLLBACK: откатываем ${CHANGED_SERVICES[*]}..."
 
-# Статус контейнеров
+    while IFS='|' read -r svc image; do
+        if [ -n "$image" ]; then
+            log "🔄 Откат $svc"
+            docker compose up -d --no-build "$svc" 2>&1 | tee -a "$LOG_FILE" || true
+        fi
+    done < "$ROLLBACK_FILE"
+
+    log "❌ ДЕПЛОЙ ПРОВАЛЕН (сбой: ${FAILED_SVC:-health check})"
+    log "Последние логи проблемного сервиса:"
+    [ -n "$FAILED_SVC" ] && docker compose logs --tail=20 "$FAILED_SVC" 2>&1 | tee -a "$LOG_FILE" || true
+
+    exit 1
+fi
+
+# ─── Final status ─────────────────────────
+log "✅ Деплой завершён: ${CHANGED_SERVICES[*]}"
 docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG_FILE"
 
 # Health check
@@ -129,5 +209,4 @@ if [ -f "$PROJECT_ROOT/scripts/check-health.sh" ]; then
     bash "$PROJECT_ROOT/scripts/check-health.sh" | tee -a "$LOG_FILE" || true
 fi
 
-echo "----------------------------------------" >> "$LOG_FILE"
-
+echo "────────────────────────────────" >> "$LOG_FILE"

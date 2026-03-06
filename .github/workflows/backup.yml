@@ -1,0 +1,32 @@
+name: Backup
+
+on:
+  schedule:
+    # Ежедневно в 03:00 UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run backup via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: hackathon
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 300s
+          script: |
+            cd /opt/hackathon
+            bash scripts/backup.sh 2>&1
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::Backup failed! Check server logs."
+          echo "Debug: ssh hackathon@server 'tail -30 /opt/hackathon/logs/backup.log'"

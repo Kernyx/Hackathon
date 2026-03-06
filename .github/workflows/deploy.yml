@@ -1,23 +1,220 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI — Lint & Build"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_services:
+        description: "Services to force-rebuild (comma-separated, e.g. frontend,go-backend). Leave empty for auto-detect."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false  # НИКОГДА не отменяем текущий деплой
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Деплоим только если CI прошёл (или workflow_dispatch)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 15
+
     steps:
+      - uses: actions/checkout@v4
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          FORCE_SERVICES: ${{ github.event.inputs.force_services || '' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: hackathon
           key: ${{ secrets.DEPLOY_KEY }}
           port: 22
+          timeout: 600s
+          command_timeout: 600s
+          envs: FORCE_SERVICES
           script: |
-            cd /opt/hackathon
+            set -euo pipefail
+
+            PROJECT="/opt/hackathon"
+            LOG="$PROJECT/logs/deploy.log"
+            TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+            log() { echo "[$TIMESTAMP] $1" | tee -a "$LOG"; }
+
+            cd "$PROJECT" || exit 1
+
+            # ───── 0. Disk space guard ─────
+            AVAIL_MB=$(df -m "$PROJECT" | awk 'NR==2{print $4}')
+            if [ "$AVAIL_MB" -lt 500 ]; then
+              log "❌ ABORT: Only ${AVAIL_MB}MB free. Need at least 500MB."
+              exit 1
+            fi
+            log "💾 Disk: ${AVAIL_MB}MB available"
+
+            # ───── 1. Save current state for rollback ─────
+            ROLLBACK_FILE=$(mktemp /tmp/rollback-XXXXXX.json)
+            docker compose --profile all ps -q 2>/dev/null | while read -r cid; do
+              NAME=$(docker inspect --format='{{.Name}}' "$cid" | sed 's/^\//')
+              IMAGE=$(docker inspect --format='{{.Image}}' "$cid")
+              echo "{\"name\":\"$NAME\",\"image\":\"$IMAGE\"}"
+            done > "$ROLLBACK_FILE" || true
+            log "📸 Saved rollback state: $(wc -l < "$ROLLBACK_FILE") containers"
+
+            # ───── 2. Pull changes safely ─────
             git fetch origin main
-            git reset --hard origin/main
-            bash scripts/deploy.sh
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/main)
+
+            if [ "$LOCAL" = "$REMOTE" ] && [ -z "$FORCE_SERVICES" ]; then
+              log "ℹ️ Already up-to-date ($LOCAL). Running health check only."
+              bash scripts/check-health.sh 2>&1 | tee -a "$LOG" || true
+              exit 0
+            fi
+
+            git pull --ff-only origin main || {
+              log "⚠️ git pull --ff-only failed, trying merge..."
+              git merge origin/main --no-edit || {
+                log "❌ ABORT: git merge conflict. Fix manually."
+                exit 1
+              }
+            }
+
+            NEW_REV=$(git rev-parse --short HEAD)
+            log "📥 Updated to $NEW_REV"
+
+            # ───── 3. Determine changed services ─────
+            if [ -n "$FORCE_SERVICES" ]; then
+              IFS=',' read -ra SERVICES <<< "$FORCE_SERVICES"
+              log "🔧 Force rebuild: ${SERVICES[*]}"
+            else
+              CHANGED=$(git diff --name-only "$LOCAL" "$REMOTE" 2>/dev/null || echo "")
+              SERVICES=()
+
+              declare -A SMAP=(
+                ["services/vite-project"]="frontend"
+                ["services/auth-service"]="auth-service"
+                ["services/ai-agent-service"]="java-backend"
+                ["services/go-backend"]="go-backend"
+                ["services/ml-ai-service"]="ml-service"
+                ["services/caddy"]="caddy"
+              )
+
+              for dir in "${!SMAP[@]}"; do
+                if echo "$CHANGED" | grep -q "^${dir}/"; then
+                  SERVICES+=("${SMAP[$dir]}")
+                fi
+              done
+
+              # docker-compose.yml changed → all services
+              if echo "$CHANGED" | grep -q '^docker-compose\.yml$'; then
+                log "⚠️ docker-compose.yml changed — rebuilding ALL services"
+                SERVICES=("frontend" "auth-service" "java-backend" "go-backend" "ml-service" "caddy")
+              fi
+            fi
+
+            if [ "${#SERVICES[@]}" -eq 0 ]; then
+              log "ℹ️ No service changes detected. Health check only."
+              bash scripts/check-health.sh 2>&1 | tee -a "$LOG" || true
+              exit 0
+            fi
+
+            log "🚀 Deploying: ${SERVICES[*]}"
+
+            # ───── 4. Build & Deploy with rollback capability ─────
+            DEPLOY_OK=true
+            for svc in "${SERVICES[@]}"; do
+              log "🔨 Building: $svc"
+              if ! timeout 300 docker compose up -d --build --no-deps "$svc" 2>&1 | tee -a "$LOG"; then
+                log "❌ Build FAILED for $svc"
+                DEPLOY_OK=false
+                break
+              fi
+            done
+
+            # ───── 5. Wait for healthy ─────
+            if [ "$DEPLOY_OK" = true ]; then
+              log "⏳ Waiting for services to become healthy..."
+              MAX_WAIT=120
+              ELAPSED=0
+              INTERVAL=5
+
+              while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
+                UNHEALTHY=$(docker compose --profile all ps 2>/dev/null | grep -cE "(unhealthy|health: starting)" || true)
+                if [ "$UNHEALTHY" -eq 0 ]; then
+                  log "✅ All services healthy (${ELAPSED}s)"
+                  break
+                fi
+                log "⏳ ${UNHEALTHY} services still starting... (${ELAPSED}/${MAX_WAIT}s)"
+                sleep "$INTERVAL"
+                ELAPSED=$((ELAPSED + INTERVAL))
+              done
+
+              if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+                # Check if services are actually unhealthy (vs just slow)
+                STILL_UNHEALTHY=$(docker compose --profile all ps 2>/dev/null | grep -c "unhealthy" || true)
+                if [ "$STILL_UNHEALTHY" -gt 0 ]; then
+                  log "❌ ${STILL_UNHEALTHY} services unhealthy after ${MAX_WAIT}s"
+                  DEPLOY_OK=false
+                else
+                  log "⚠️ Timeout but no unhealthy services — continuing"
+                fi
+              fi
+            fi
+
+            # ───── 6. Rollback on failure ─────
+            if [ "$DEPLOY_OK" = false ]; then
+              log "🔄 ROLLBACK: restoring previous state..."
+
+              for svc in "${SERVICES[@]}"; do
+                PREV_IMAGE=$(grep "\"name\":\"hackathon-" "$ROLLBACK_FILE" 2>/dev/null | grep "$svc" | head -1 | grep -o '"image":"[^"]*"' | cut -d'"' -f4 || true)
+                if [ -n "$PREV_IMAGE" ]; then
+                  log "🔄 Rolling back $svc to $PREV_IMAGE"
+                  docker compose up -d --no-build "$svc" 2>&1 | tee -a "$LOG" || true
+                fi
+              done
+
+              rm -f "$ROLLBACK_FILE"
+              log "❌ DEPLOY FAILED — rolled back. Check logs above."
+              exit 1
+            fi
+
+            rm -f "$ROLLBACK_FILE"
+
+            # ───── 7. Final status ─────
+            log "✅ Deploy completed successfully (rev: $NEW_REV)"
+            docker compose --profile all ps --format "table {{.Names}}\t{{.Status}}" | tee -a "$LOG"
+
+            # Run health check
+            bash scripts/check-health.sh 2>&1 | tee -a "$LOG" || true
+
+            echo "────────────────────────────────" >> "$LOG"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::Deploy failed! Check the SSH step logs above."
+          echo "Possible actions:"
+          echo "  1. Check server logs: ssh hackathon@${{ secrets.DEPLOY_HOST }} 'tail -50 /opt/hackathon/logs/deploy.log'"
+          echo "  2. Manual rollback: ssh hackathon@${{ secrets.DEPLOY_HOST }} 'cd /opt/hackathon && git reset --hard HEAD~1 && docker compose --profile all up -d'"
+
+  # ─────────────────────────────────────────
+  # Skip notification when CI failed
+  # ─────────────────────────────────────────
+  ci-failed:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: CI failed — deploy skipped
+        run: |
+          echo "::warning::CI failed — deploy was NOT triggered."
+          echo "Fix the CI errors first, then push again."
