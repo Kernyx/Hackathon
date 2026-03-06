@@ -15,6 +15,7 @@ ENV_FILE="$PROJECT_ROOT/.env"
 # Загрузка переменных окружения
 if [ -f "$ENV_FILE" ]; then
     set -a
+    # shellcheck source=/dev/null
     source "$ENV_FILE"
     set +a
 else
@@ -87,7 +88,6 @@ for service in "${SERVICES[@]}"; do
              continue
         fi
     else
-        NAME=$(echo "$INFO" | cut -d'|' -f1)
         STATUS_TEXT=$(echo "$INFO" | cut -d'|' -f2)
         STATE=$(echo "$INFO" | cut -d'|' -f3)
 
