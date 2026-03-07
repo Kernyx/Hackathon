@@ -106,17 +106,27 @@ jobs:
                 ["services/ml-ai-service"]="ml-service"
                 ["services/caddy"]="caddy"
               )
+              # Порядок сборки: лёгкие сначала, тяжёлые (Java) — последними
+              ORDERED_DIRS=(
+                "services/caddy"
+                "services/vite-project"
+                "services/go-backend"
+                "services/ml-ai-service"
+                "services/auth-service"
+                "services/ai-agent-service"
+              )
 
-              for dir in "${!SMAP[@]}"; do
+              for dir in "${ORDERED_DIRS[@]}"; do
                 if echo "$CHANGED" | grep -q "^${dir}/"; then
                   SERVICES+=("${SMAP[$dir]}")
                 fi
               done
 
-              # docker-compose.yml changed → all services
+              # docker-compose.yml changed → НЕ пересобираем образы!
+              # Просто рестартуем контейнеры с новым конфигом (limits, env и т.д.)
               if echo "$CHANGED" | grep -q '^docker-compose\.yml$'; then
-                log "⚠️ docker-compose.yml changed — rebuilding ALL services"
-                SERVICES=("frontend" "auth-service" "java-backend" "go-backend" "ml-service" "caddy")
+                log "⚙️ docker-compose.yml changed — applying config (no image rebuild)"
+                docker compose --profile all up -d --no-build 2>&1 | tee -a "$LOG" || true
               fi
             fi
 
@@ -126,16 +136,23 @@ jobs:
               exit 0
             fi
 
-            log "🚀 Deploying: ${SERVICES[*]}"
+            log "🚀 Deploying sequentially (1 service at a time): ${SERVICES[*]}"
 
-            # ───── 4. Build & Deploy with rollback capability ─────
+            # ───── 4. Build & Deploy: СТРОГО ПО ОДНОМУ, с паузами ─────
+            # Это предотвращает перегрузку сервера при нескольких сборках подряд.
+            # timeout на каждый сервис отдельно (360s = 6 мин).
             DEPLOY_OK=true
             for svc in "${SERVICES[@]}"; do
               log "🔨 Building: $svc"
-              if ! timeout 300 docker compose up -d --build --no-deps "$svc" 2>&1 | tee -a "$LOG"; then
+              if ! timeout 360 docker compose up -d --build --no-deps "$svc" 2>&1 | tee -a "$LOG"; then
                 log "❌ Build FAILED for $svc"
                 DEPLOY_OK=false
                 break
+              fi
+              # Пауза между сборками — даём CPU/RAM восстановиться
+              if [ "${#SERVICES[@]}" -gt 1 ]; then
+                log "😴 Cooldown 20s before next service..."
+                sleep 20
               fi
             done
 
